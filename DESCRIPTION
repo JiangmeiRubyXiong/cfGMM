@@ -1,0 +1,10 @@
+Package: cfGMM
+Type: Package
+Title: What the Package Does (Title Case)
+Version: 0.1.0
+Author: Jiangmei Xiong, Dr. Simon Vandekar
+Maintainer: Jiangmei Xiong <jiangmei.xiong@vanderbilt.edu>
+Description: This package is for function cfGMM, which gives estimate of fitted gamma mixture model.
+License: GPL-3
+Encoding: UTF-8
+LazyData: true

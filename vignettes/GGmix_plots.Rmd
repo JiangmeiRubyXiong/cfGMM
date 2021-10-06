@@ -1,0 +1,742 @@
+---
+title: "GGmix_plot"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+load("~/A.Projects/current/progress/GGmix/mIF_GMM_example.rdata")
+```
+
+```{r}
+set.seed(1234)
+# 2 components
+# true parameter setup
+k2 <- 2
+phi_2 <- c(0.3, 0.7)
+a2 <- c(0.5, 8) #shape
+b2 <- c(2, 3) #rate
+n <- 10000
+
+#data generation
+ggdata_ind <- sample(c(1,2) ,size=n, replace = T, prob = phi_2)
+ggdata2 <- c(rgamma(sum(ggdata_ind==1), shape=a2[1], rate=b2[1]), rgamma(sum(ggdata_ind==2), shape=a2[2], rate=b2[2]))
+
+#plot
+xs <- (1:100)/5
+hist(ggdata2, freq=F, xlim=c(0,20), ylim=c(0,0.3), breaks=40)
+lines(xs, phi_2[1] * dgamma(xs, shape=a2[1],rate=b2[1]) + phi_2[2] * dgamma(xs, shape=a2[2],rate=b2[2]),col="orange",lty=1,lwd=2)
+
+# 3 components
+# true parameter setup
+k3 <- 3
+phi_3 <- c(0.3, 0.5, 0.2)
+a3 <- c(0.5, 6, 8) #shape
+b3 <- c(2, 3, 1) #rate
+n <- 10000
+
+#data generation
+ggdata_ind <- sample(c(1,2,3) ,size=n, replace = T, prob = phi_3)
+ggdata3 <- c(rgamma(sum(ggdata_ind==1), shape=a3[1], rate=b3[1]), 
+            rgamma(sum(ggdata_ind==2), shape=a3[2], rate=b3[2]),
+            rgamma(sum(ggdata_ind==3), shape=a3[3], rate=b3[3]))
+
+#plot
+xs <- (1:100)/5
+hist(ggdata3, freq=F, xlim=c(0,15), ylim=c(0,0.5), breaks=40)
+lines(xs, phi_3[1] * dgamma(xs, shape=a3[1],rate=b3[1]) + 
+          phi_3[2] * dgamma(xs, shape=a3[2],rate=b3[2])  + 
+          phi_3[3] * dgamma(xs, shape=a3[3],rate=b3[3]), col="orange",lty=1,lwd=2)
+#save(ggdata2, file="ggdata2.RData")
+#save(ggdata3, file="ggdata3.RData")
+```
+
+```{r, echo=FALSE}
+set.seed(1)
+# Function with the constraint --------------------------------------------
+optimize_derivative <- function(bk, mk, data.vec, phi.vec){
+  sum(phi.vec*(mk+bk-mk*log(bk)-mk*digamma(mk/bk+1)+mk*log(data.vec)-data.vec))
+}
+#--------------------------------------------------------------------------
+# Main Function -----------------------------------------------------------
+# Input: @datavec: data vector
+#        @k: number of components. Interger that is greater or equal to 2
+#        @init.val.a: (optional) shape starting value. Can be either a vector with length k or a constant. If the input is vector and
+#                     there is NA in the vector, the NAs will be filled with MOM estimator. If the input is a constant, the initial value
+#                     of a will be a vector of length k. If not specified, the initial value will be a vector of values near MOM estimator.
+#                     All numerical values input should be greater than 0.
+#        @init.val.b: (optional) scale starting value. Same specification as init.val.a
+#        @init.val.phi: (optional) Can be either a matrix with nrow=length(datavector) and ncol=k, or a vector with length k. NA value
+#                          matrix input is not allowed. If the input is vector, the initial value would be a matrix with
+#                          nrow=length(datavector) and repeated rows of the vector input. If the input is not specified, the initial phi
+#                          matrix is a nrow=length(datavector) and ncol=k with all elements equal to 1/k.
+#        @diff.conv: (optional) default to 1e-5
+#        @max.iter: (optional) default to 1e3
+#        @max.comp: (optional) whether k indicates maximum number of components or fixed number of component. Logical, TRUE indicates k is 
+#                           the maximum and FALSE indicates k is fixed. Default to be FALSE.
+#        @min.lambda: 1e-5
+#        @constraint: NULL or matrix of dimension (k,2), each row correspond to alpha_lower, alpha_upper, beta_lower, beta_upper for one component. If one end is not specified, let it be NA.
+#        @inner.loop: interger greater or equal to 1. When there isn't constraint, the more inner.loop, the more accurate the
+#                     result, the longer the algorithm takes. Defaults to be 4.
+EModel <- function(datavec, k, alpha=NULL, beta=NULL, lambda=NULL, diff.conv=1e-6, max.iter=1e3, maxrestarts = 20, max.comp=FALSE, min.lambda=1e-4, constraint=NULL, inner.loop=4)
+  {
+  n <- length(datavec)
+  if(any(datavec==0)) datavec <- datavec+0.01
+  init.k <- k
+  init.constraint <- constraint
+  # Getting started with initial values. If not specified, initial value will be replaced with a value near MOM estimator.
+  # removes 4th element, which is k
+  result4 <- list()
+  likelihood4 <- rep(NA,inner.loop)
+ for(j in 1:inner.loop){
+     param.init <- param_current <- simplify2array(mixtools::gammamix.init(datavec, lambda, alpha, beta, k = k)[1:3])
+     param_current[,3] <- 1/param_current[,3] #convert to shape/rate
+     mode <- (param_current[,2]-1)/param_current[,3]
+     param_current <- param_current[order(mode),]
+     param.init <- param_current
+     print("param.init")
+     print(param.init)
+   m.diff.conv <- Inf
+   #loop till convergence.
+   iter=0
+   nrestarts=0
+  
+   m.log_lik_new <-  -Inf
+  
+  # loops
+  while(m.diff.conv>diff.conv & iter<=max.iter & nrestarts<=maxrestarts){
+    # loop parameters
+    iter = iter + 1
+    param_prev <- param_current
+    m.log_lik_old <- m.log_lik_new
+    
+    # compute the mixture component probabilities for each observation
+    phi_out <- apply(param_current, 1, function(x) dgamma(datavec,shape=x[2],rate=x[3])*x[1] )
+    # divide by their sum (Bayes rule)
+    phi_out <- sweep(phi_out, 1, rowSums(phi_out), FUN = '/' )
+    
+    # step 3
+    # Compute
+    param_current[,1] <- colSums(phi_out)
+    # this is the denominator?
+    param_current[,2] <- param_current[,1] * colSums(phi_out*datavec*log(datavec))-
+      colSums(phi_out*log(datavec))*colSums(phi_out*datavec)
+    param_current[,3] <- ((param_current[,1])^2)/param_current[,2]
+    param_current[,2] <- (param_current[,1] * colSums(phi_out*datavec))/param_current[,2]
+    param_current[,1] <- param_current[,1]/n
+    
+    print(param_current) # prints old parameters
+    if(!any(is.infinite(param_current)|is.nan(param_current))){
+      if(!is.null(constraint)){
+        #TO ADD:check that lower bound is lower than upper bound
+        # what if there is only one sided constraint, or a,b doesn't have same constraint 
+        for (i in 1:k){
+            lower <- (constraint[i,1])
+            upper <- (constraint[i,2])
+            mode <- (param_current[i,2]-1)/param_current[i,3]
+            #used the function at the beginning to solve for beta
+            if (mode > upper){
+              param_current[i,3] <- 1/(uniroot(f=optimize_derivative, interval = c(1e-5,1e6), mk=upper, phi.vec=phi_out[,i], data.vec=datavec)$root)
+              param_current[i,2] <- param_current[i,3]* upper +1
+              print(c(param_current[i,3], mode))
+            } else if (mode < lower){
+              param_current[i,3] <- 1/(uniroot(f=optimize_derivative, interval = c(1e-5,1e6), mk=lower, phi.vec=phi_out[,i], data.vec=datavec)$root)
+              param_current[i,2] <- param_current[i,3]* lower+1
+              print(c(param_current[i,3], mode))
+            } 
+        }
+      }
+
+      log_lik_new <- apply(param_current, MARGIN = 1, 
+                         FUN = function(a, datavec){a[1]*dgamma(datavec, shape =a[2] , rate=a[3])}, datavec=datavec )
+      m.log_lik_new <- mean(log(rowSums(log_lik_new)))
+      
+      if(is.nan(m.log_lik_new)){
+        message('Likelihood NaN, restart')
+        k <- init.k
+        constraint <- init.constraint
+        message('Bad parameter values, restarting with new initial parameters.')
+        param.init <- param_current <- simplify2array(mixtools::gammamix.init(datavec, lambda, alpha, beta, k = k)[1:3])
+        param_current[,3] <- 1/param_current[,3] #convert to shape/rate
+        mode <- (param_current[,2]-1)/param_current[,3]
+        param_current <- param_current[order(mode),]
+        iter <- 0
+        nrestarts<-nrestarts+1
+        m.log_lik_new <-  -Inf
+        m.diff.conv <- Inf
+      } else {
+        m.diff.conv <- abs(m.log_lik_new-m.log_lik_old)#max(abs((param_current-param_prev)/param_current))
+        print("mean log likelihood")
+        print(m.log_lik_new)
+        
+        if(any(param_current[,1]<=min.lambda) & max.comp==TRUE){
+          #remove one component
+          message('Probability too small, removing one component')
+          idx <- which.min(param_current[,1])
+          print(idx)
+          k=k-1
+          param_current <- param_current[-idx,]
+          constraint <- constraint[-idx,]
+          print(param_current)
+        } else if(any(param_current[,1]<=min.lambda)){
+         #restart
+          k <- init.k
+          constraint <- init.constraint
+          message('Bad parameter values, restarting with new initial parameters.')
+          param.init <- param_current <- simplify2array(mixtools::gammamix.init(datavec, lambda, alpha, beta, k = k)[1:3])
+          param_current[,3] <- 1/param_current[,3] #convert to shape/rate
+          mode <- (param_current[,2]-1)/param_current[,3]
+          param_current <- param_current[order(mode),]
+          iter <- 0
+          nrestarts<-nrestarts+1
+          m.log_lik_new <-  -Inf
+          m.diff.conv <- Inf
+          } 
+        
+      }
+      
+      
+    } else {
+      #restart
+          k <- init.k
+          constraint <- init.constraint
+          message('Bad parameter values, restarting with new initial parameters.')
+          param.init <- param_current <- simplify2array(mixtools::gammamix.init(datavec, lambda, alpha, beta, k = k)[1:3])
+          param_current[,3] <- 1/param_current[,3] #convert to shape/rate
+          mode <- (param_current[,2]-1)/param_current[,3]
+          param_current <- param_current[order(mode),]
+          iter <- 0
+          nrestarts<-nrestarts+1
+          m.log_lik_new <-  -Inf
+          m.diff.conv <- Inf
+    }
+     if(k==1){
+          message('no more components, restart')
+          k <- init.k
+          constraint <- init.constraint
+          param.init <- param_current <- simplify2array(mixtools::gammamix.init(datavec, lambda, alpha, beta, k = k)[1:3])
+          param_current[,3] <- 1/param_current[,3] #convert to shape/rate
+          mode <- (param_current[,2]-1)/param_current[,3]
+          param_current <- param_current[order(mode),]
+          iter <- 0
+          nrestarts<-nrestarts+1
+          m.log_lik_new <-  -Inf
+          m.diff.conv <- Inf
+        }
+
+
+    if(iter==max.iter){
+      k <- init.k
+      constraint <- init.constraint
+      param.init <- param_current <- simplify2array(mixtools::gammamix.init(datavec, lambda, alpha, beta, k = k)[1:3])
+      param_current[,3] <- 1/param_current[,3] #convert to shape/rate
+      mode <- (param_current[,2]-1)/param_current[,3]
+      param_current <- param_current[order(mode),]
+      iter <- 0
+      nrestarts<-nrestarts+1
+      m.log_lik_new <-  -Inf
+      m.diff.conv <- Inf
+    }
+  }
+   convergence <-  m.diff.conv <= diff.conv
+   likelihood4[j] <- m.log_lik_new
+   result4[[j]] <- list(param_at_conv=param_current, param.init=param.init, z=phi_out, convergence=convergence, nrestarts=nrestarts)
+ }
+final.result <- list(result4[[which.max(likelihood4)]],likelihood4)
+
+return(final.result)
+#return(list(param_at_conv=param_current, params=param.init, z=phi_out, convergence=convergence,nrestarts=nrestarts))
+}
+
+```
+
+
+
+
+
+
+## plot 1: the contour illustration
+```{r fig.width=4, fig.height=4}
+library(contourPlot)
+set.seed(1)
+a2 <- c(0.5, 8) #shape
+b2 <- c(2, 3) #rate
+ggdata_ind <- sample(c(1,2) ,size=n, replace = T, prob = phi_2)
+ggdata2 <- c(rgamma(sum(ggdata_ind==1), shape=a2[1], rate=b2[1]), rgamma(sum(ggdata_ind==2), shape=a2[2], rate=b2[2]))
+alpha <- 1:500/33
+beta <- 500:1/33
+ab <- cbind(rep(alpha,500), rep(beta, each=500))
+log_lik <- apply(ab,1,function(x){mean(log(dgamma(ggdata2, shape =x[1] , scale=x[2])))})
+# plot(ab[log_lik>-1.8,1],1/ab[log_lik>-1.8,2])
+
+contour(x = 1:500/33, y = 33/(500:1), z = matrix(log_lik, ncol=500, byrow = F),
+        levels=quantile(log_lik,probs=(c(7:9/10))),drawlabels=FALSE, xlim=c(0,16), ylim=c(0,51),xaxs="i",yaxs="i",xaxt="none", yaxt="none", xlab="1/bk", ylab="ak")
+text(c(5,10),c(36,23),labels = c("upper bound","lower bound"))
+axis(1, seq(0,15,3))
+axis(2, seq(0,51,17))
+abline(1,3)
+abline(1,5)
+grid(nx=5, ny=3)
+```
+
+```{r}
+# extract simualtion results
+#convert rate to scale
+n.sim=1000
+result.100.2comp <- result.list[[1]]
+result.100.2comp[,5:6] <- 1/result.100.2comp[,5:6]
+
+result.100.3comp <- result.list[[2]]
+result.100.3comp[,7:9] <- 1/result.100.3comp[,7:9]
+
+result.1000.2comp <- result.list[[3]]
+result.1000.2comp[,5:6] <- 1/result.1000.2comp[,5:6]
+
+result.1000.3comp <- result.list[[4]]
+result.1000.3comp[,7:9] <- 1/result.1000.3comp[,7:9]
+
+result.10000.2comp <- result.list[[5]]
+result.10000.2comp[,5:6] <- 1/result.10000.2comp[,5:6]
+
+result.10000.3comp <- result.list[[6]]
+result.10000.3comp[,7:9] <- 1/result.10000.3comp[,7:9]
+```
+
+
+## table 1: convergence percentage
+```{r}
+conv.all<- c(result.100.2comp[,8],result.1000.2comp[,8],result.10000.2comp[,8],
+             result.100.3comp[,11],result.1000.3comp[,11],result.10000.3comp[,11])
+
+conv.mat <- matrix(conv.all, byrow = T, ncol=3)
+conv.percent <- matrix(NA, nrow = 6, ncol=3)
+for(i in 1:6){
+  conv.percent[i,] <- colMeans(conv.mat[((i-1)*n.sim+1):(i*n.sim),])
+}
+conv.mat.percent <- cbind(conv.percent[1:3,], conv.percent[4:6,])
+colnames(conv.mat.percent) <- c('2comp.constr', '2comp', '2comp.mixtool', '3comp.constr', '3comp', '3comp.mixtool')
+conv.mat.percent
+```
+
+## plot 2: compare run time 2 component: boxplot
+```{r fig.height=4, fig.width=6.5}
+library(reshape2)
+library(ggdist)
+library(ggplot2)
+method.names <- c("constr.\ncfGMM","cfGMM","GMM")
+ctime.2com <- c(result.100.2comp[,7],result.1000.2comp[,7],result.10000.2comp[,7])
+ctime.2comp.mat <- matrix(ctime.2com, ncol = 3, byrow=T)
+# ctime.2comp.mat <- cbind(ctime.2comp.mat[1:n.sim,],ctime.2comp.mat[(n.sim+1):(2*n.sim),],ctime.2comp.mat[(2*n.sim+1):(3*n.sim),])
+# colnames(ctime.2comp.mat) <- rep(c("GGmix with \n constraints","GGmix","mixtool"),3)
+# par(mfrow=c(1,3))
+# boxplot(ctime.2comp.mat[,1:3], ylab="time", main="sample size 100")
+# abline(h=colMeans(ctime.2comp.mat[,1:3]), col=c("red","blue","green"))
+# boxplot(ctime.2comp.mat[,4:6], ylab="time", main="sample size 1000")
+# boxplot(ctime.2comp.mat[,7:9], ylab="time", main="sample size 10000")
+
+ns <- c("n=100", "n=1000", "n=10000")
+ctime.2comp.df <- cbind.data.frame(ctime.2comp.mat, sample.size=rep(ns, each=n.sim), id=rep(1:1000,3))
+colnames(ctime.2comp.df)[1:3] <- method.names
+ctime.2comp.df <-reshape2::melt(ctime.2comp.df, id = c("id", "sample.size"))
+colnames(ctime.2comp.df)[3:4] <- c("method", "time") 
+ctime.2comp.df$method <- as.factor(ctime.2comp.df$method)
+# ggplot(ctime.2comp.df, aes(method, time)) +
+#   ggdist::stat_halfeye(adjust = .5, width = .3, .width = 0, justification = -.3, point_colour = NA) + 
+#   geom_boxplot(width = .1, outlier.shape = NA) +
+#   ggdist::stat_dots(side = "left", dotsize = .01, justification = 1.1, binwidth = .1)+
+#   facet_wrap(~sample.size)
+
+library(ggridges)
+library(viridis)
+library(hrbrthemes)
+
+# Plot
+ggplot(ctime.2comp.df, aes(x = `time`, y = `method`, fill = ..x..)) +
+  geom_density_ridges_gradient(scale = 0.9, rel_min_height = 0.00001) +
+  scale_fill_viridis(name = "Time [s]", option = "C" , trans = "log", direction = -1) +
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 3))+
+  labs(title = 'Processing time comparison (2 component)') +
+  theme_ipsum() +
+    theme(
+      legend.position="none",
+      panel.spacing = unit(0.1, "lines"),
+      strip.text.x = element_text(size = 8),
+      plot.margin = unit(c(0.5, 1, 0.5, 1), "cm")
+    )+facet_wrap(~sample.size, scales = "free")
+
+```
+
+## plot 3: compare run time 3 component: boxplot
+```{r fig.height=4, fig.width=6.5}
+method.names <- c("constr.\ncfGMM","cfGMM","GMM")
+ctime.3com <- c(result.100.3comp[,10],result.1000.3comp[,10],result.10000.3comp[,10])
+ctime.3comp.mat <- matrix(ctime.3com, ncol = 3, byrow=T)
+# ctime.3comp.mat <- cbind(ctime.3comp.mat[1:n.sim,],ctime.3comp.mat[(n.sim+1):(2*n.sim),],ctime.3comp.mat[(2*n.sim+1):(3*n.sim),])
+# colnames(ctime.3comp.mat) <- rep(c("GGmix with \n constraints","GGmix","mixtool"),3)
+# par(mfrow=c(1,3))
+# boxplot(ctime.3comp.mat[,1:3], ylab="time", main="sample size 100")
+# boxplot(ctime.3comp.mat[,4:6], ylab="time", main="sample size 1000")
+# boxplot(ctime.3comp.mat[,7:9], ylab="time", main="sample size 10000")
+
+ctime.3comp.df <- cbind.data.frame(ctime.3comp.mat, sample.size=rep(ns, each=n.sim), id=rep(1:1000,3))
+colnames(ctime.3comp.df)[1:3] <- method.names
+ctime.3comp.df <-reshape2::melt(ctime.3comp.df, id = c("id", "sample.size"))
+colnames(ctime.3comp.df)[3:4] <- c("method", "time") 
+# ggplot(ctime.3comp.df, aes(method, time)) +
+#   ggdist::stat_halfeye(adjust = .5, width = .3, .width = 0, justification = -.3, point_colour = NA) + 
+#   geom_boxplot(width = .1, outlier.shape = NA) +
+#   ggdist::stat_dots(side = "left", dotsize = .01, justification = 1.1, binwidth = .1)+
+#   facet_wrap(~sample.size)
+
+library(ggridges)
+library(viridis)
+library(hrbrthemes)
+
+# Plot
+ggplot(ctime.3comp.df, aes(x = `time`, y = `method`, fill = ..x..)) +
+  geom_density_ridges_gradient(scale = 0.9, rel_min_height = 0.00001) +
+  scale_fill_viridis(name = "Time [s]", option = "C", trans = "log", direction = -1) +
+  labs(title = 'Processing time comparison (3 component)') +
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 3))+
+  theme_ipsum() +
+    theme(
+      legend.position="none",
+      panel.spacing = unit(0.1, "lines"),
+      strip.text.x = element_text(size = 8),
+      plot.margin = unit(c(0.5, 1, 0.5, 1), "cm")
+    )+facet_wrap(~sample.size, scales = "free")
+```
+
+## plot 4: compare bias variance, 2comp
+```{r fig.width=6.5, fig.height=8.5}
+param.bias.100 <- as.vector(result.100.2comp[,1:6]-matrix(rep(c(0.3, 0.7, 0.5, 8, 1/2, 1/3),3000), ncol=6, byrow=T))
+param.bias.100[result.100.2comp[,8]<1 | is.infinite(rowSums(result.100.2comp[,1:6]))] <- 0
+
+param.bias.1000 <- as.vector(result.1000.2comp[,1:6]-matrix(rep(c(0.3, 0.7, 0.5, 8, 1/2, 1/3),3000), ncol=6, byrow=T))
+param.bias.1000[result.1000.2comp[,8]<1 | is.infinite(rowSums(result.1000.2comp[,1:6]))] <- 0
+param.bias.10000 <- as.vector(result.10000.2comp[,1:6]-matrix(rep(c(0.3, 0.7, 0.5, 8, 1/2, 1/3),3000), ncol=6, byrow=T))
+param.bias.10000[result.10000.2comp[,8]<1 | is.infinite(rowSums(result.10000.2comp[,1:6]))] <- 0
+# winsorized for data visualization (95%)
+wins.prob <- 0.975
+method.names <- c("constr.\ncfGMM","cfGMM","GMM")
+bias.mat.100 <-  matrix(param.bias.100, ncol=3, byrow=T)
+for (i in 1:3){
+  for( j in 1:6){
+    ridx <- ((j-1)*n.sim+1):(j*n.sim)
+    wins <- bias.mat.100[ridx,i]
+    cutoff <- quantile(wins, probs=wins.prob)
+    wins[wins>cutoff] <- cutoff
+    cutoff <- quantile(wins, probs=(1-wins.prob))
+    wins[wins>cutoff] <- cutoff
+    bias.mat.100[ridx,i] <- wins
+  }
+}
+colnames(bias.mat.100) <- method.names
+bias.mat.1000 <-  matrix(param.bias.1000, ncol=3, byrow=T)
+for (i in 1:3){
+  for( j in 1:6){
+    ridx <- ((j-1)*n.sim+1):(j*n.sim)
+    wins <- bias.mat.100[ridx,i]
+    cutoff <- quantile(wins, probs=wins.prob)
+    wins[wins>cutoff] <- cutoff
+    cutoff <- quantile(wins, probs=(1-wins.prob))
+    wins[wins>cutoff] <- cutoff
+    bias.mat.100[ridx,i] <- wins
+  }
+}
+colnames(bias.mat.1000) <- method.names
+bias.mat.10000 <-  matrix(param.bias.10000, ncol=3, byrow=T)
+for (i in 1:3){
+  for( j in 1:6){
+    ridx <- ((j-1)*n.sim+1):(j*n.sim)
+    wins <- bias.mat.100[ridx,i]
+    cutoff <- quantile(wins, probs=wins.prob)
+    wins[wins>cutoff] <- cutoff
+    cutoff <- quantile(wins, probs=(1-wins.prob))
+    wins[wins>cutoff] <- cutoff
+    bias.mat.100[ridx,i] <- wins
+  }
+}
+colnames(bias.mat.10000) <- method.names
+
+
+
+# par(mfrow=c(1,2))
+# boxplot(bias.mat.100[1:1000,], ylab="bias", main="alpha1")
+# boxplot(bias.mat.100[1001:2000,], ylab="bias", main="alpha2")
+# par(mfrow=c(1,2))
+# boxplot(log(bias.mat.100[1:1000,]-min(bias.mat.100[1:1000,])+0.01), ylab="bias", main="alpha1")
+# boxplot(log(bias.mat.100[1001:2000,]-min(bias.mat.100[1001:2000,])+0.01), ylab="bias", main="alpha2")
+# 
+# boxplot(log(bias.mat.100[2001:3000,]-min(bias.mat.100[2001:3000,])+0.01), ylab="bias", main="alpha1")
+# boxplot(log(bias.mat.100[3001:4000,]-min(bias.mat.100[3001:4000,])+0.01), ylab="bias", main="alpha2")
+# par(mfrow=c(1,2))
+# boxplot(log(bias.mat.100[4001:5000,]-min(bias.mat.100[4001:5000,])+0.01), ylab="bias", main="alpha1")
+# boxplot(log(bias.mat.100[5001:6000,]-min(bias.mat.100[5001:6000,])+0.01), ylab="bias", main="alpha2")
+
+
+
+## ggplot
+# bias.mat.100[2001:4000,] <- log(bias.mat.100[2001:4000,]-min(bias.mat.100[2001:4000,])+0.01)
+# bias.mat.1000[2001:4000,] <- log(bias.mat.1000[2001:4000,]-min(bias.mat.1000[2001:4000,])+0.01)
+# bias.mat.10000[2001:4000,] <- log(bias.mat.10000[2001:4000,]-min(bias.mat.10000[2001:4000,])+0.01)
+library(ggplot2)
+library(reshape2)
+param.name <- c("lambda", "alpha", "beta")
+bias100 <- melt(
+  cbind.data.frame(bias.mat.100, id=c(1:6000), parameter=rep(param.name, each=(2*n.sim)),
+                   component=rep(rep(c("comp1","comp2"),each=n.sim ), 3) )
+  , id=c("id", "parameter","component"))
+bias1000 <- melt(
+  cbind.data.frame(bias.mat.1000, id=c(1:6000), parameter=rep(param.name, each=(2*n.sim)),
+                   component=rep(rep(c("comp1","comp2"),each=n.sim ), 3) )
+  , id=c("id", "parameter","component"))
+bias10000 <- melt(
+  cbind.data.frame(bias.mat.10000, id=c(1:6000), parameter=rep(param.name, each=(2*n.sim)),
+                   component=rep(rep(c("comp1","comp2"),each=n.sim ), 3) )
+  , id=c("id", "parameter","component"))
+
+bias.all <- rbind(bias100, bias1000, bias10000)
+colnames(bias.all)[4:5] <- c("method", "bias")
+bias.all $ sample.size<- as.factor(rep(c("n=100","n=1000","n=10000"), each=nrow(bias100)))
+
+p11<-ggplot(bias.all, aes(x=method, y=bias, fill=component)) +
+  labs(title = 'Bias comparison (2 component)') +
+  geom_boxplot(outlier.size=0.2) + facet_wrap(~sample.size+parameter, scales="free")+
+  theme_ipsum() +
+    theme(
+      panel.spacing = unit(0.1, "lines"),
+      legend.position = c(.95, 1.1),
+      #strip.text = element_text(size = 9),
+      axis.text = element_text(size = 9),
+      plot.subtitle = element_text(size=11),
+      legend.text = element_text(size=11)
+      
+    )+
+  scale_fill_manual(values=c("#E69F00", "#56B4E9"))
+p11
+```
+
+## plot 5: compare bias variance, 3comp
+```{r fig.width=6.5, fig.height=8.5}
+true.param <- c(0.3, 0.5, 0.2, 0.5, 6, 8, 1/2, 1/3, 1)
+param.bias.100.3comp <- as.vector(result.100.3comp[,1:9]-matrix(rep(true.param,3000), ncol=9, byrow=T))
+param.bias.100.3comp[result.100.3comp[,11]<1 | is.infinite(rowSums(result.100.3comp[,1:9]))] <- 0
+
+param.bias.1000.3comp <- as.vector(result.1000.3comp[,1:9]-matrix(rep(true.param ,3000), ncol=9, byrow=T))
+param.bias.1000.3comp[result.1000.3comp[,11]<1 | is.infinite(rowSums(result.1000.3comp[,1:9]))] <- 0
+param.bias.10000.3comp <- as.vector(result.10000.3comp[,1:9]-matrix(rep(true.param ,3000), ncol=9, byrow=T))
+param.bias.10000.3comp[result.10000.3comp[,11]<1 | is.infinite(rowSums(result.10000.3comp[,1:9]))] <- 0
+
+method.names <- c("constr. \n cfGMM","cfGMM","GMM")
+bias.mat.100.3comp <-  matrix(param.bias.100.3comp, ncol=3, byrow=T)
+colnames(bias.mat.100.3comp) <- method.names
+for (i in 1:3){
+  for( j in 1:9){
+    ridx <- ((j-1)*n.sim+1):(j*n.sim)
+    wins <- bias.mat.100.3comp[ridx,i]
+    cutoff <- quantile(wins, probs=wins.prob)
+    wins[wins>cutoff] <- cutoff
+    bias.mat.100.3comp[ridx,i] <- wins
+  }
+}
+bias.mat.1000.3comp <-  matrix(param.bias.1000.3comp, ncol=3, byrow=T)
+colnames(bias.mat.1000.3comp) <- method.names
+for (i in 1:3){
+  for( j in 1:9){
+    ridx <- ((j-1)*n.sim+1):(j*n.sim)
+    wins <- bias.mat.1000.3comp[ridx,i]
+    cutoff <- quantile(wins, probs=wins.prob)
+    wins[wins>cutoff] <- cutoff
+    bias.mat.1000.3comp[ridx,i] <- wins
+  }
+}
+bias.mat.10000.3comp <-  matrix(param.bias.10000.3comp, ncol=3, byrow=T)
+colnames(bias.mat.10000.3comp) <- method.names
+for (i in 1:3){
+  for( j in 1:9){
+    ridx <- ((j-1)*n.sim+1):(j*n.sim)
+    wins <- bias.mat.10000.3comp[ridx,i]
+    cutoff <- quantile(wins, probs=wins.prob)
+    wins[wins>cutoff] <- cutoff
+    bias.mat.10000.3comp[ridx,i] <- wins
+  }
+}
+
+# par(mfrow=c(1,2))
+# boxplot(bias.mat.100[1:1000,], ylab="bias", main="alpha1")
+# boxplot(bias.mat.100[1001:2000,], ylab="bias", main="alpha2")
+# par(mfrow=c(1,2))
+# boxplot(log(bias.mat.100[1:1000,]-min(bias.mat.100[1:1000,])+0.01), ylab="bias", main="alpha1")
+# boxplot(log(bias.mat.100[1001:2000,]-min(bias.mat.100[1001:2000,])+0.01), ylab="bias", main="alpha2")
+# 
+# boxplot(log(bias.mat.100[2001:3000,]-min(bias.mat.100[2001:3000,])+0.01), ylab="bias", main="alpha1")
+# boxplot(log(bias.mat.100[3001:4000,]-min(bias.mat.100[3001:4000,])+0.01), ylab="bias", main="alpha2")
+# par(mfrow=c(1,2))
+# boxplot(log(bias.mat.100[4001:5000,]-min(bias.mat.100[4001:5000,])+0.01), ylab="bias", main="alpha1")
+# boxplot(log(bias.mat.100[5001:6000,]-min(bias.mat.100[5001:6000,])+0.01), ylab="bias", main="alpha2")
+
+
+
+## ggplot
+# bias.mat.100[2001:4000,] <- log(bias.mat.100[2001:4000,]-min(bias.mat.100[2001:4000,])+0.01)
+# bias.mat.1000[2001:4000,] <- log(bias.mat.1000[2001:4000,]-min(bias.mat.1000[2001:4000,])+0.01)
+# bias.mat.10000[2001:4000,] <- log(bias.mat.10000[2001:4000,]-min(bias.mat.10000[2001:4000,])+0.01)
+library(ggplot2)
+library(reshape2)
+param.name <- c("lambda", "alpha", "beta")
+comp3name <- c("comp1","comp2","comp3")
+bias100.3comp <- melt(
+  cbind.data.frame(bias.mat.100.3comp, id=c(1:9000), parameter=rep(param.name, each=(3*n.sim)),
+                   component=rep(rep(comp3name,each=n.sim ), 3) )
+  , id=c("id", "parameter","component"))
+bias1000.3comp <- melt(
+  cbind.data.frame(bias.mat.1000.3comp, id=c(1:9000), parameter=rep(param.name, each=(3*n.sim)),
+                   component=rep(rep(comp3name,each=n.sim ), 3) )
+  , id=c("id", "parameter","component"))
+bias10000.3comp <- melt(
+  cbind.data.frame(bias.mat.10000.3comp, id=c(1:9000), parameter=rep(param.name, each=(3*n.sim)),
+                   component=rep(rep(comp3name,each=n.sim ), 3) )
+  , id=c("id", "parameter","component"))
+
+bias.all.3comp <- rbind(bias100.3comp, bias1000.3comp, bias10000.3comp)
+colnames(bias.all.3comp)[4:5] <- c("method", "bias")
+bias.all.3comp $ sample.size<- as.factor(rep(c("n=100","n=1000","n=10000"), each=nrow(bias100.3comp)))
+
+p12<-ggplot(bias.all.3comp, aes(x=method, y=bias, fill=component)) +
+  
+  geom_boxplot(outlier.size=0.5) + facet_wrap(~sample.size+parameter, scales="free")+
+  labs(title = 'Bias comparison (3 component)') +
+  theme_ipsum() +
+    theme(
+      panel.spacing = unit(0.1, "lines"),
+      legend.position = c(.95, 1.1),
+      #strip.text = element_text(size = 9),
+      axis.text = element_text(size = 9),
+      plot.subtitle = element_text(size=11),
+      legend.text = element_text(size=11),
+      plot.margin = unit(c(1, 0.1, 1, 0.1), "cm")
+    )+
+
+  scale_fill_brewer(palette="Dark2")
+p12
+```
+
+
+## plot 6: single simlulation fit histogram
+```{r}
+set.seed(1)
+xs <- (1:100)/5
+ggdata_ind <- sample(c(1,2) ,size=1000, replace = T, prob = phi_2)
+    ggdata2 <- c(rgamma(sum(ggdata_ind==1), shape=a2[1], rate=b2[1]), rgamma(sum(ggdata_ind==2), shape=a2[2], rate=b2[2]))
+    
+outGG2 <- EModel(ggdata2, k=2)
+ggdata_ind <- sample(c(1,2,3) ,size=1000, replace = T, prob = phi_3)
+    ggdata3 <- c(rgamma(sum(ggdata_ind==1), shape=a3[1], rate=b3[1]), 
+               rgamma(sum(ggdata_ind==2), shape=a3[2], rate=b3[2]),
+               rgamma(sum(ggdata_ind==3), shape=a3[3], rate=b3[3]))
+    ggdata3 <- as.data.frame(ggdata3)
+    colnames(ggdata3) <- "x"
+outGG3 <- EModel(ggdata3, k=3)
+
+param3 <- outGG3[[1]][[1]]
+sim3 <- cbind.data.frame( "1"= dgamma(xs, shape=param3[1,2],rate=param3[1,3]) , 
+                          "2"= dgamma(xs, shape=param3[2,2],rate=param3[2,3]) ,
+                          "3"= dgamma(xs, shape=param3[3,2],rate=param3[3,3]) ,
+                           "x" = xs)
+sim3 <- melt(sim3, variable.name = "component", id.vars = "x", value.name = "density")
+library(ggridges)
+
+p1 <- ggplot(data=ggdata3, aes(x=x,y = ..density..))+
+  geom_histogram(binwidth=0.2,alpha = 0.8)+
+  geom_line(data=sim3, aes(x=x, y=density, group=component)) +
+  geom_density_line(data=sim3, aes(x=x, y=density, group=component, fill=component),stat = "identity", size=.5, alpha=0.5) +
+  theme_ipsum() +
+  theme(
+    legend.position = c(.8, .8)
+  )+ scale_fill_brewer(palette="Dark2")
+ 
+p1
+p2 <- ggplot(data,aes(x=value, fill=variable)) + geom_density(alpha=0.25)+
+  scale_color_manual(values=c("#E69F00", "#56B4E9"))
+
+```
+
+```{r mxif}
+set.seed(1)
+xs <- (1:100)/50
+library(reshape2)
+library(ggplot2)
+library(ggridges)
+library(hrbrthemes)
+betterfit <- EModel(datavec = mixtoolsBadFit, k=2, constraint = matrix(c(0,0.8,0.5,1.5), nrow=2, byrow=T))
+badfit <- gammamixEM(mixtoolsBadFit, k=2)
+fit_param <- betterfit[[1]]$param_at_conv
+data.df <- as.data.frame(mixtoolsBadFit)
+colnames(data.df) <- "x"
+cstr.cf <- cbind.data.frame( "1"= fit_param[1,1] * 
+                               dgamma(xs, shape=fit_param[1,2],rate=fit_param[1,3]), 
+                          "2"= fit_param[2,1] * 
+                            dgamma(xs, shape=fit_param[2,2],rate=fit_param[2,3]) ,
+                           "x" = xs)
+cstr.cf <- melt(cstr.cf, variable.name = "component", id.vars = "x", value.name = "density")
+
+gmm <- cbind.data.frame( "1"= badfit$lambda[1] * 
+                           dgamma(xs, shape=badfit$gamma.pars[1,1],rate=badfit$gamma.pars[2,1]), 
+                          "2"= badfit$lambda[2] * 
+                          dgamma(xs, shape=badfit$gamma.pars[1,2],rate=badfit$gamma.pars[2,2]) ,
+                           "x" = xs)
+gmm <- melt(gmm, variable.name = "component", id.vars = "x", value.name = "density")
+pm1 <- ggplot(data=data.df, aes(x=x,y = ..density..))+
+  geom_histogram(binwidth=0.05,alpha = 0.8)+
+  geom_line(data=cstr.cf, aes(x=x, y=density, group=component)) +
+  geom_density_line(data=cstr.cf, aes(x=x, y=density, group=component, fill=component),stat = "identity", size=.5, alpha=0.5) +
+  theme_ipsum() +
+  theme(
+    legend.position = c(.8, .8)
+  )+ scale_color_manual(values=c("azure2", "coral1"))
++scale_y_
+pm1 
+pm2 <- ggplot(data,aes(x=value, fill=variable)) + geom_density(alpha=0.25)+
+  scale_color_manual(values=c("#E69F00", "#56B4E9"))
+
+hist(mixtoolsBadFit, breaks = 40, freq = F)
+lines(xs, badfit$lambda[1] * dgamma(xs, shape=badfit$gamma.pars[1,1],scale=badfit$gamma.pars[2,1]),col="red")
+lines(xs, badfit$lambda[2] * dgamma(xs, shape=badfit$gamma.pars[1,2],scale=badfit$gamma.pars[2,2]))
+
+library(cowplot)
+plot_grid(pm1,pm2)
+```
+
+```{r}
+# #debug
+# n.sim=1000
+# size.n <- c(10,100,1000)
+# j=1
+# for (i in 1: n.sim) {
+#   ggdata_ind <- sample(c(1,2) ,size=size.n[j], replace = T, prob = phi_2)
+#     ggdata2 <- c(rgamma(sum(ggdata_ind==1), shape=a2[1], rate=b2[1]), rgamma(sum(ggdata_ind==2), shape=a2[2], rate=b2[2]))
+#     st <- system.time(outGG <- EModel(ggdata2, k=2))
+#     time.2 <- st[3]
+#     outGG <- outGG[[1]]
+#     rank.em <- order(outGG$param_at_conv[,1])
+#     params.2 <- as.vector(outGG$param_at_conv[rank.em,])
+#     #####mixtool
+#     time.2.mixtool <- system.time(outmix <- mixtools::gammamixEM(ggdata2, k=2))[3]
+#     rank.mixtool <- order(outmix$lambda)
+#     params.2.mixtool <- c(outmix$lambda[rank.mixtool], outmix$gamma.pars[1,][rank.mixtool], (1/(outmix$gamma.pars[2,]))[rank.mixtool])
+#     ######### 2 component constrained
+#     constraint.mat <- matrix(c(-Inf, 0,0,5), ncol=2, byrow=T)
+#     st <- system.time(outCstr <- EModel(ggdata2, k=2, constraint=constraint.mat, inner.loop=1))
+#     time.2.Cstr <- st[3]
+#     outCstr <- outCstr[[1]]
+#     rank.em <- order(outCstr$param_at_conv[,1])
+#     params.2.Cstr <- as.vector(outCstr$param_at_conv[rank.em,])
+#     
+#     matrix(c( params.2, time.2, params.2.mixtool, time.2.mixtool, params.2.Cstr, time.2.Cstr ), ncol=7, byrow = T)
+#   }
+
+```
