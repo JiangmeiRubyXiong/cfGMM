@@ -1,6 +1,6 @@
 Package: cfGMM
 Type: Package
-Title: What the Package Does (Title Case)
+Title: closed-form estimator for gamma mixture model
 Version: 0.1.0
 Author: Jiangmei Xiong, Dr. Simon Vandekar
 Maintainer: Jiangmei Xiong <jiangmei.xiong@vanderbilt.edu>
@@ -8,3 +8,8 @@ Description: This package is for function cfGMM, which gives estimate of fitted 
 License: GPL-3
 Encoding: UTF-8
 LazyData: true
+Collate:
+    'cfGMM.R'
+    'dbk.R'
+Imports:
+  mixtools
