@@ -1,6 +1,6 @@
 Package: cfGMM
 Type: Package
-Title: closed-form estimator for gamma mixture model
+Title: closed-form estimation for gamma mixture model
 Version: 0.1.0
 Author: Jiangmei Xiong, Dr. Simon Vandekar
 Maintainer: Jiangmei Xiong <jiangmei.xiong@vanderbilt.edu>
