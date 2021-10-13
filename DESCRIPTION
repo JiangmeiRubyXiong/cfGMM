@@ -12,4 +12,6 @@ Collate:
     'cfGMM.R'
     'dbk.R'
 Imports:
-  mixtools
+  mixtools,
+  stats
+RoxygenNote: 7.1.1

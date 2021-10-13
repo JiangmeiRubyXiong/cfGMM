@@ -1,18 +1,26 @@
-
-#--------------------------------------------------------------------------
-# Main Function -----------------------------------------------------------
-#' @x: data vector
-#' @k: number of components. Interger that is greater or equal to 2
-#' @init.val.a: (optional) shape starting value. Can be either a vector with length k or a constant. If the input is vector and there is NA in the vector, the NAs will be filled with MOM estimator. If the input is a constant, the initial value of a will be a vector of length k. If not specified, the initial value will be a vector of values near MOM estimator. All numerical values input should be greater than 0.
-#' @init.val.b: (optional) scale starting value. Same specification as init.val.a
-#' @init.val.phi: (optional) Can be either a matrix with nrow=length(xtor) and ncol=k, or a vector with length k. NA value matrix input is not allowed. If the input is vector, the initial value would be a matrix with nrow=length(xtor) and repeated rows of the vector input. If the input is not specified, the initial phi matrix is a nrow=length(xtor) and ncol=k with all elements equal to 1/k.
-#' @diff.conv: (optional) default to 1e-5
-#' @max.iter: (optional) default to 1e3
-#' @max.comp: (optional) whether k indicates maximum number of components or fixed number of component. Logical, TRUE indicates k is the maximum and FALSE indicates k is fixed. Default to be FALSE.
-#' @min.lambda: 1e-5
-#' @constraint: NULL or matrix of dimension (k,2), each row correspond to alpha_lower, alpha_upper, beta_lower, beta_upper for one component. If one end is not specified, let it be NA.
-#' @inner.loop: integer greater or equal to 1. When there isn't constraint, the more inner.loop, the more accurate the result, the longer the algorithm takes. Defaults to be 4.
+#' Main Function:cfGMM
+#'
+#' @param x data vector
+#' @param k number of components. Integer that is greater or equal to 2
+#' @param alpha (optional) shape starting value. Can be either a vector with length k or a constant. If the input is vector and there is NA in the vector, the NAs will be filled with MOM estimator. If the input is a constant, the initial value of a will be a vector of length k. If not specified, the initial value will be a vector of values near MOM estimator. All numerical values input should be greater than 0.
+#' @param beta (optional) scale starting value. Same specification as init.val.a
+#' @param lambda (optional) Can be either a matrix with nrow=length(xtor) and ncol=k, or a vector with length k. NA value matrix input is not allowed. If the input is vector, the initial value would be a matrix with nrow=length(xtor) and repeated rows of the vector input. If the input is not specified, the initial phi matrix is a nrow=length(xtor) and ncol=k with all elements equal to 1/k.
+#' @param diff.conv (optional) default to 1e-5
+#' @param max.iter (optional) default to 1e3
+#' @param maxrestarts (optional) default to 20
+#' @param max.comp (optional) whether k indicates maximum number of components or fixed number of component. Logical, TRUE indicates k is the maximum and FALSE indicates k is fixed. Default to be FALSE.
+#' @param min.lambda 1e-5
+#' @param constraint NULL or matrix of dimension (k,2), each row correspond to alpha_lower, alpha_upper, beta_lower, beta_upper for one component. If one end is not specified, let it be NA.
+#' @param inner.loop integer greater or equal to 1. When there isn't constraint, the more inner.loop, the more accurate the result, the longer the algorithm takes. Defaults to be 4.
 #' @importFrom mixtools gammamix.init
+#' @importFrom stats dgamma uniroot
+#' @return
+#' \item{x}{The raw data.}
+#' \item{lambda}{The final mixing proportions.}
+#' \item{gamma.pars}{A 2xk matrix where each column provides the component estimates of \code{alpha} and \code{beta}.}
+#' \item{loglik}{The final log-likelihood.}
+#' \item{all.loglik}{A vector of each iteration's log-likelihood.}
+#' \item{ft}{Name of the function}
 #' @export
 
 
@@ -26,6 +34,7 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, diff.conv=1e-6, max.
   # removes 4th element, which is k
   result4 <- list()
   likelihood4 <- rep(NA,inner.loop)
+  all.loglik4 <- list()
   for(j in 1:inner.loop){
     param.init <- param_current <- simplify2array(mixtools::gammamix.init(x, lambda, alpha, beta, k = k)[1:3])
     param_current[,3] <- 1/param_current[,3] #convert to shape/rate
@@ -40,6 +49,7 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, diff.conv=1e-6, max.
     nrestarts=0
 
     m.log_lik_new <-  -Inf
+    m.loglik.all <- NULL
 
     # loops
     while(m.diff.conv>diff.conv & iter<=max.iter & nrestarts<=maxrestarts){
@@ -74,11 +84,11 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, diff.conv=1e-6, max.
             mode <- (param_current[i,2]-1)/param_current[i,3]
             #used the function at the beginning to solve for beta
             if (mode > upper){
-              param_current[i,3] <- 1/(uniroot(f=optimize_derivative, interval = c(1e-5,1e6), mk=upper, phi.vec=phi_out[,i], data.vec=x)$root)
+              param_current[i,3] <- 1/(uniroot(f=optimize_derivative, interval = c(1e-5,1e6), mk=upper, phi.vec=phi_out[,i], x=x)$root)
               param_current[i,2] <- param_current[i,3]* upper +1
               print(c(param_current[i,3], mode))
             } else if (mode < lower){
-              param_current[i,3] <- 1/(uniroot(f=optimize_derivative, interval = c(1e-5,1e6), mk=lower, phi.vec=phi_out[,i], data.vec=x)$root)
+              param_current[i,3] <- 1/(uniroot(f=optimize_derivative, interval = c(1e-5,1e6), mk=lower, phi.vec=phi_out[,i], x=x)$root)
               param_current[i,2] <- param_current[i,3]* lower+1
               print(c(param_current[i,3], mode))
             }
@@ -88,7 +98,7 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, diff.conv=1e-6, max.
         log_lik_new <- apply(param_current, MARGIN = 1,
                              FUN = function(a, x){a[1]*dgamma(x, shape =a[2] , rate=a[3])}, x=x )
         m.log_lik_new <- mean(log(rowSums(log_lik_new)))
-
+        m.loglik.all <- c(m.loglik.all, m.log_lik_new)
         if(is.nan(m.log_lik_new)){
           message('Likelihood NaN, restart')
           k <- init.k
@@ -178,12 +188,19 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, diff.conv=1e-6, max.
     }
     convergence <-  m.diff.conv <= diff.conv
     likelihood4[j] <- m.log_lik_new
+    all.loglik4[[j]] <- m.loglik.all
     result4[[j]] <- list(param_at_conv=param_current, param.init=param.init, z=phi_out, convergence=convergence, nrestarts=nrestarts)
   }
+  final.result <- result4[[which.max(likelihood4)]]
+  final.loglik.all <- all.loglik4[[which.max(likelihood4)]]
+  final.lambda <- param_current[,1]
+  final.pars <- t(param_current[,2:3])
+  final.pars[2,] <- 1/final.pars[2,]
+  final.lik <- max(likelihood4)
   final.result <- list(result4[[which.max(likelihood4)]],likelihood4)
 
-  return(final.result)
+  output <- list(x=x, lambda=final.lambda, gamma.pars=final.pars, loglik=final.lik, all.loglik=final.loglik.all, ft="cfGMM")
+
+  return(output)
   #return(list(param_at_conv=param_current, params=param.init, z=phi_out, convergence=convergence,nrestarts=nrestarts))
 }
-
-```
