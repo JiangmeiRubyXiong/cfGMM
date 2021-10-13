@@ -7,11 +7,11 @@
 #' @param lambda (optional) Can be either a matrix with nrow=length(xtor) and ncol=k, or a vector with length k. NA value matrix input is not allowed. If the input is vector, the initial value would be a matrix with nrow=length(xtor) and repeated rows of the vector input. If the input is not specified, the initial phi matrix is a nrow=length(xtor) and ncol=k with all elements equal to 1/k.
 #' @param diff.conv (optional) default to 1e-5
 #' @param max.iter (optional) default to 1e3
-#' @param maxrestarts (optional) default to 20
+#' @param max.restarts (optional) default to 20
 #' @param max.comp (optional) whether k indicates maximum number of components or fixed number of component. Logical, TRUE indicates k is the maximum and FALSE indicates k is fixed. Default to be FALSE.
 #' @param min.lambda 1e-5
 #' @param constraint NULL or matrix of dimension (k,2), each row correspond to alpha_lower, alpha_upper, beta_lower, beta_upper for one component. If one end is not specified, let it be NA.
-#' @param inner.loop integer greater or equal to 1. When there isn't constraint, the more inner.loop, the more accurate the result, the longer the algorithm takes. Defaults to be 4.
+#' @param min.restarts integer greater or equal to 1. This is the number of times the EM algorithm starting at different values, and the result returned will be from the one with highest mean log-likelihood. When there isn't constraint, the complexity of model with k>2 calls for more restarts for result accuracy. Defaults to be 4.
 #' @importFrom mixtools gammamix.init
 #' @importFrom stats dgamma uniroot
 #' @return
@@ -19,12 +19,34 @@
 #' \item{lambda}{The final mixing proportions.}
 #' \item{gamma.pars}{A 2xk matrix where each column provides the component estimates of \code{alpha} and \code{beta}.}
 #' \item{loglik}{The final log-likelihood.}
+#' \item{posterior}{An nxk matrix of posterior probabilities for observations.}
 #' \item{all.loglik}{A vector of each iteration's log-likelihood.}
 #' \item{ft}{Name of the function}
+#' \item{convergence}{Indicator variable of whether the last run converges}
+#' \item{nrestart}{Number of restarts}
+#'
+#' @examples
+#' ### Analyze a 2-component dataset
+#'
+#' ## data generation
+#' set.seed(1)
+#' add(10, 1)
+#' k2 <- 2
+#' phi_2 <- c(0.3, 0.7)
+#' a2 <- c(0.5, 8) #shape
+#' b2 <- c(1/2, 1/3) #scale
+#' n <- 10000
+#' ind <- sample(c(1,2) ,size=n, replace = T, prob = phi_2)
+#' data.gamma <- c(rgamma(sum(ggdata_ind==1), shape=a2[1], rate=b2[1]),
+#' rgamma(sum(ggdata_ind==2), shape=a2[2], rate=b2[2]))
+#' ## run the model
+#' out <- cfGMM(data.gamma, k=2)
+#' out[["gamma.pars"]]
+#' out[["lambda"]]
 #' @export
 
 
-cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, diff.conv=1e-6, max.iter=1e3, maxrestarts = 20, max.comp=FALSE, min.lambda=1e-4, constraint=NULL, inner.loop=4)
+cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, diff.conv=1e-6, max.iter=1e3, max.restarts = 20, max.comp=FALSE, min.lambda=1e-4, constraint=NULL, min.restarts=4)
 {
   n <- length(x)
   if(any(x==0)){stop('Data must be strictly positive.')}
@@ -33,9 +55,9 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, diff.conv=1e-6, max.
   # Getting started with initial values. If not specified, initial value will be replaced with a value near MOM estimator.
   # removes 4th element, which is k
   result4 <- list()
-  likelihood4 <- rep(NA,inner.loop)
+  likelihood4 <- rep(NA,min.restarts)
   all.loglik4 <- list()
-  for(j in 1:inner.loop){
+  for(j in 1:min.restarts){
     param.init <- param_current <- simplify2array(mixtools::gammamix.init(x, lambda, alpha, beta, k = k)[1:3])
     param_current[,3] <- 1/param_current[,3] #convert to shape/rate
     mode <- (param_current[,2]-1)/param_current[,3]
@@ -52,7 +74,7 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, diff.conv=1e-6, max.
     m.loglik.all <- NULL
 
     # loops
-    while(m.diff.conv>diff.conv & iter<=max.iter & nrestarts<=maxrestarts){
+    while(m.diff.conv>diff.conv & iter<=max.iter & nrestarts<=max.restarts){
       # loop parameters
       iter = iter + 1
       param_prev <- param_current
@@ -193,13 +215,15 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, diff.conv=1e-6, max.
   }
   final.result <- result4[[which.max(likelihood4)]]
   final.loglik.all <- all.loglik4[[which.max(likelihood4)]]
-  final.lambda <- param_current[,1]
-  final.pars <- t(param_current[,2:3])
+  final.lambda <- result4[["param_current"]][,1]
+  final.pars <- t(result4[["param_current"]][,2:3])
   final.pars[2,] <- 1/final.pars[2,]
   final.lik <- max(likelihood4)
-  final.result <- list(result4[[which.max(likelihood4)]],likelihood4)
+  final.z <- result4[["z"]]
+  final.conv <- result4[["convergence"]]
+  final.restart <- result4[["nrestarts"]]
 
-  output <- list(x=x, lambda=final.lambda, gamma.pars=final.pars, loglik=final.lik, all.loglik=final.loglik.all, ft="cfGMM")
+  output <- list(x=x, lambda=final.lambda, gamma.pars=final.pars, loglik=final.lik, posterior=final.z, all.loglik=final.loglik.all, convergence = final.conv, nrestart=final.restart,ft="cfGMM")
 
   return(output)
   #return(list(param_at_conv=param_current, params=param.init, z=phi_out, convergence=convergence,nrestarts=nrestarts))

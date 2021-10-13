@@ -12,17 +12,17 @@ cfGMM(
   lambda = NULL,
   diff.conv = 1e-06,
   max.iter = 1000,
-  maxrestarts = 20,
+  max.restarts = 20,
   max.comp = FALSE,
   min.lambda = 1e-04,
   constraint = NULL,
-  inner.loop = 4
+  min.restarts = 4
 )
 }
 \arguments{
 \item{x}{data vector}
 
-\item{k}{number of components. Interger that is greater or equal to 2}
+\item{k}{number of components. Integer that is greater or equal to 2}
 
 \item{alpha}{(optional) shape starting value. Can be either a vector with length k or a constant. If the input is vector and there is NA in the vector, the NAs will be filled with MOM estimator. If the input is a constant, the initial value of a will be a vector of length k. If not specified, the initial value will be a vector of values near MOM estimator. All numerical values input should be greater than 0.}
 
@@ -34,7 +34,7 @@ cfGMM(
 
 \item{max.iter}{(optional) default to 1e3}
 
-\item{maxrestarts}{(optional) default to 20}
+\item{max.restarts}{(optional) default to 20}
 
 \item{max.comp}{(optional) whether k indicates maximum number of components or fixed number of component. Logical, TRUE indicates k is the maximum and FALSE indicates k is fixed. Default to be FALSE.}
 
@@ -42,8 +42,38 @@ cfGMM(
 
 \item{constraint}{NULL or matrix of dimension (k,2), each row correspond to alpha_lower, alpha_upper, beta_lower, beta_upper for one component. If one end is not specified, let it be NA.}
 
-\item{inner.loop}{integer greater or equal to 1. When there isn't constraint, the more inner.loop, the more accurate the result, the longer the algorithm takes. Defaults to be 4.}
+\item{min.restarts}{integer greater or equal to 1. This is the number of times the EM algorithm starting at different values, and the result returned will be from the one with highest mean log-likelihood. When there isn't constraint, the complexity of model with k>2 calls for more restarts for result accuracy. Defaults to be 4.}
+}
+\value{
+\item{x}{The raw data.}
+\item{lambda}{The final mixing proportions.}
+\item{gamma.pars}{A 2xk matrix where each column provides the component estimates of \code{alpha} and \code{beta}.}
+\item{loglik}{The final log-likelihood.}
+\item{posterior}{An nxk matrix of posterior probabilities for observations.}
+\item{all.loglik}{A vector of each iteration's log-likelihood.}
+\item{ft}{Name of the function}
+\item{convergence}{Indicator variable of whether the last run converges}
+\item{nrestart}{Number of restarts}
 }
 \description{
 Main Function:cfGMM
+}
+\examples{
+### Analyze a 2-component dataset
+
+## data generation
+set.seed(1)
+add(10, 1)
+k2 <- 2
+phi_2 <- c(0.3, 0.7)
+a2 <- c(0.5, 8) #shape
+b2 <- c(1/2, 1/3) #scale
+n <- 10000
+ind <- sample(c(1,2) ,size=n, replace = T, prob = phi_2)
+data.gamma <- c(rgamma(sum(ggdata_ind==1), shape=a2[1], rate=b2[1]),
+rgamma(sum(ggdata_ind==2), shape=a2[2], rate=b2[2]))
+## run the model
+out <- cfGMM(data.gamma, k=2)
+out[["gamma.pars"]]
+out[["lambda"]]
 }
