@@ -35,7 +35,7 @@
 #' a <- c(0.5, 8) #shape
 #' b <- c(1/2, 1/3) #scale
 #' n <- 10000 #data size
-#' ind <- sample(c(1,2) ,size=n, replace = T, prob = phi)
+#' ind <- sample(c(1,2) ,size=n, replace = TRUE, prob = phi)
 #' data.gamma <- c(rgamma(sum(ind==1), shape=a[1], rate=b[1]),
 #' rgamma(sum(ind==2), shape=a[2], rate=b[2]))
 #' ## run the model

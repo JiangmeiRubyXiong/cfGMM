@@ -2,7 +2,8 @@
 % Please edit documentation in R/cfGMM.R
 \name{cfGMM}
 \alias{cfGMM}
-\title{Main Function:cfGMM}
+\title{Closed-form Gamma Mixture Model estimation.
+This function returns estimated parameters for Gamma Mixture Model using EM algoritm with cclosed-form estimators.}
 \usage{
 cfGMM(
   x,
@@ -10,19 +11,19 @@ cfGMM(
   alpha = NULL,
   beta = NULL,
   lambda = NULL,
+  n.rerun = 4,
   diff.conv = 1e-06,
   max.iter = 1000,
   max.restarts = 20,
   max.comp = FALSE,
   min.lambda = 1e-04,
-  constraint = NULL,
-  min.restarts = 4
+  constraint = NULL
 )
 }
 \arguments{
-\item{x}{data vector}
+\item{x}{Data vector}
 
-\item{k}{number of components. Integer that is greater or equal to 2}
+\item{k}{Number of components. Integer that is greater or equal to 2.}
 
 \item{alpha}{(optional) shape starting value. Can be either a vector with length k or a constant. If the input is vector and there is NA in the vector, the NAs will be filled with MOM estimator. If the input is a constant, the initial value of a will be a vector of length k. If not specified, the initial value will be a vector of values near MOM estimator. All numerical values input should be greater than 0.}
 
@@ -30,19 +31,19 @@ cfGMM(
 
 \item{lambda}{(optional) Can be either a matrix with nrow=length(xtor) and ncol=k, or a vector with length k. NA value matrix input is not allowed. If the input is vector, the initial value would be a matrix with nrow=length(xtor) and repeated rows of the vector input. If the input is not specified, the initial phi matrix is a nrow=length(xtor) and ncol=k with all elements equal to 1/k.}
 
+\item{n.rerun}{(optional) Integer greater or equal to 1. This is the number of times the EM algorithm starting at different values, and the result returned will be from the run with highest mean log-likelihood. When there isn't constraint, the complexity of model with k>2 calls for more restarts for result accuracy. Defaults to be 4.}
+
 \item{diff.conv}{(optional) default to 1e-5}
 
 \item{max.iter}{(optional) default to 1e3}
 
-\item{max.restarts}{(optional) default to 20}
+\item{max.restarts}{(optional) The number of restart within each run. EM algorithm restarts with another initial value when it reaches \code{max.iter} but has not converged. Default to 20.}
 
-\item{max.comp}{(optional) whether k indicates maximum number of components or fixed number of component. Logical, TRUE indicates k is the maximum and FALSE indicates k is fixed. Default to be FALSE.}
+\item{max.comp}{(optional) Whether k indicates maximum number of components or fixed number of component. Logical, \code{TRUE} indicates k is the maximum and \code{FALSE} indicates k is fixed. Default to be \code{FALSE}.}
 
-\item{min.lambda}{1e-5}
+\item{min.lambda}{(optional) The minimum proportion assigned to each component. Defaults to 1e-5.}
 
-\item{constraint}{NULL or matrix of dimension (k,2), each row correspond to alpha_lower, alpha_upper, beta_lower, beta_upper for one component. If one end is not specified, let it be NA.}
-
-\item{min.restarts}{integer greater or equal to 1. This is the number of times the EM algorithm starting at different values, and the result returned will be from the one with highest mean log-likelihood. When there isn't constraint, the complexity of model with k>2 calls for more restarts for result accuracy. Defaults to be 4.}
+\item{constraint}{NULL or matrix of dimension (k,2), each row is c(lower bound, upper bound) for one component. If one end is not specified, let it be NA.}
 }
 \value{
 \item{x}{The raw data.}
@@ -56,21 +57,21 @@ cfGMM(
 \item{nrestart}{Number of restarts}
 }
 \description{
-Main Function:cfGMM
+Closed-form Gamma Mixture Model estimation.
+This function returns estimated parameters for Gamma Mixture Model using EM algoritm with cclosed-form estimators.
 }
 \examples{
 ### Analyze a 2-component dataset
 
 ## data generation
 set.seed(1)
-k2 <- 2
-phi_2 <- c(0.3, 0.7)
-a2 <- c(0.5, 8) #shape
-b2 <- c(1/2, 1/3) #scale
-n <- 10000
-ind <- sample(c(1,2) ,size=n, replace = T, prob = phi_2)
-data.gamma <- c(rgamma(sum(ind==1), shape=a2[1], rate=b2[1]),
-rgamma(sum(ind==2), shape=a2[2], rate=b2[2]))
+phi <- c(0.3, 0.7) # mixing proportion
+a <- c(0.5, 8) #shape
+b <- c(1/2, 1/3) #scale
+n <- 10000 #data size
+ind <- sample(c(1,2) ,size=n, replace = TRUE, prob = phi)
+data.gamma <- c(rgamma(sum(ind==1), shape=a[1], rate=b[1]),
+rgamma(sum(ind==2), shape=a[2], rate=b[2]))
 ## run the model
 out <- cfGMM(data.gamma, k=2)
 out[["gamma.pars"]]
