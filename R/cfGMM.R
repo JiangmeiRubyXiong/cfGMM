@@ -30,15 +30,14 @@
 #'
 #' ## data generation
 #' set.seed(1)
-#' add(10, 1)
 #' k2 <- 2
 #' phi_2 <- c(0.3, 0.7)
 #' a2 <- c(0.5, 8) #shape
 #' b2 <- c(1/2, 1/3) #scale
 #' n <- 10000
 #' ind <- sample(c(1,2) ,size=n, replace = T, prob = phi_2)
-#' data.gamma <- c(rgamma(sum(ggdata_ind==1), shape=a2[1], rate=b2[1]),
-#' rgamma(sum(ggdata_ind==2), shape=a2[2], rate=b2[2]))
+#' data.gamma <- c(rgamma(sum(ind==1), shape=a2[1], rate=b2[1]),
+#' rgamma(sum(ind==2), shape=a2[2], rate=b2[2]))
 #' ## run the model
 #' out <- cfGMM(data.gamma, k=2)
 #' out[["gamma.pars"]]
