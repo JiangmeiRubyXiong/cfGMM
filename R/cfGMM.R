@@ -217,6 +217,7 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
   final.loglik.all <- all.loglik4[[which.max(likelihood4)]]
   final.lambda <- final.result[["param_at_conv"]][,1]
   final.pars <- t(final.result[["param_at_conv"]][,2:3])
+  final.pars[2,] <- 1/final.pars[2,]
   final.lik <- max(likelihood4)
   final.z <- final.result[["z"]]
   final.conv <- final.result[["convergence"]]
