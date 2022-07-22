@@ -11,6 +11,7 @@ plotGammaMix <- function(cfGMM.list, zero_include=FALSE, breaks=40){
   pars <- cfGMM.list$gamma.pars
   lambda <- cfGMM.list$lambda
 
+  # option to include zero in histgram, but will not show in curve
   if(pars[1,1]==0 & (!zero_include)){
     x=x[x!=0]
     pars[,-1]}
@@ -29,6 +30,5 @@ plotGammaMix <- function(cfGMM.list, zero_include=FALSE, breaks=40){
   for(i in 1:num.comp){
     lines(xs, ys[i,],col=(i+2),lty=1,lwd=2)
   }
-
 }
-plotGammaMix(temp)
+
