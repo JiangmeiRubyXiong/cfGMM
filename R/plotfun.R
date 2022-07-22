@@ -29,6 +29,8 @@ plotGammaMix <- function(cfGMM.list, zero_include=FALSE, breaks=40){
     range.max[i] <- max(new.comp)
     ys[i, ] <- lambda[i] * dgamma(xs, shape=pars[1,i],rate=pars[2,i])
   }
+
+  # Generate Plot
   list.hist <- hist(x, freq=F, xlim=range(x), breaks=breaks)
   hist(x, freq=F, xlim=range(x), ylim=c(0,max(range.max,  max(list.hist$density))), breaks=breaks)
   for(i in 1:num.comp){
