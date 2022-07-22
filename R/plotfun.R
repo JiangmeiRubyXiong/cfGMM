@@ -2,7 +2,11 @@
 #'
 #' @param cfGMM.list output from function cfGMM
 #' @param zero_include logical. Whether to include 0 in the dataset to histogram, if any.
-#' @param cfGMM.list integer. Number of breaks in the histogram
+#' @param breaks integer. Number of breaks in the histogram
+#' @importFrom graphics hist lines
+#' @importFrom stats dgamma
+#' @return
+#' \item{out}{The histogram.}
 #' @export
 
 plotGammaMix <- function(cfGMM.list, zero_include=FALSE, breaks=40){

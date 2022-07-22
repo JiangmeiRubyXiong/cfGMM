@@ -11,7 +11,9 @@ LazyData: true
 Collate:
     'cfGMM.R'
     'dbk.R'
+    'plotfun.R'
 Imports:
   mixtools,
-  stats
-RoxygenNote: 7.1.1
+  stats,
+  graphics
+RoxygenNote: 7.1.2

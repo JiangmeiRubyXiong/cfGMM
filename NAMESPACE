@@ -2,6 +2,9 @@
 
 export(cfGMM)
 export(optimize_derivative)
+export(plotGammaMix)
+importFrom(graphics,hist)
+importFrom(graphics,lines)
 importFrom(mixtools,gammamix.init)
 importFrom(stats,dgamma)
 importFrom(stats,uniroot)
