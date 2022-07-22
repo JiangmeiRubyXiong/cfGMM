@@ -23,3 +23,7 @@ out <- cfGMM(data.gamma, k=2)
 out[["gamma.pars"]] # output shape and scale paramter
 out[["lambda"]] # output lambda paramter
 ```
+To generate a plot of fitted model and data entered, simply:
+```{r}
+plotGammaMix(out)
+```
