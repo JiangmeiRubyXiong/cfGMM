@@ -49,7 +49,7 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
 {
   n <- length(x)
   if(any(x==0)){stop('Data must be strictly positive.')}
-  if(k<2){stop('k must be greater or equal to 2')}
+  if(k<1){stop('k must be greater or equal to 1')}
   init.k <- k
   init.constraint <- constraint
   # Getting started with initial values. If not specified, initial value will be replaced with a value near MOM estimator.
@@ -59,6 +59,7 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
   all.loglik4 <- list()
   for(j in 1:n.rerun){
     param.init <- param_current <- simplify2array(mixtools::gammamix.init(x, lambda, alpha, beta, k = k)[1:3])
+    if(is.null(dim(param_current))){param_current <- matrix(param_current, nrow=1)}
     param_current[,3] <- 1/param_current[,3] #convert to shape/rate
     mode <- (param_current[,2]-1)/param_current[,3]
     param_current <- param_current[order(mode),]
@@ -81,6 +82,7 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
       m.log_lik_old <- m.log_lik_new
 
       # compute the mixture component probabilities for each observation
+      if(is.null(dim(param_current))){param_current <- matrix(param_current, nrow=1)}
       phi_out <- apply(param_current, 1, function(param) dgamma(x,shape=param[2],rate=param[3])*param[1] )
       # divide by their sum (Bayes rule)
       phi_out <- sweep(phi_out, 1, rowSums(phi_out), FUN = '/' )
@@ -116,7 +118,7 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
             }
           }
         }
-
+        if(is.null(dim(param_current))){param_current <- matrix(param_current, nrow=1)}
         log_lik_new <- apply(param_current, MARGIN = 1,
                              FUN = function(a, x){a[1]*dgamma(x, shape =a[2] , rate=a[3])}, x=x )
         m.log_lik_new <- mean(log(rowSums(log_lik_new)))
@@ -127,6 +129,7 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
           constraint <- init.constraint
           message('Bad parameter values, restarting with new initial parameters.')
           param.init <- param_current <- simplify2array(mixtools::gammamix.init(x, lambda, alpha, beta, k = k)[1:3])
+          if(is.null(dim(param_current))){param_current <- matrix(param_current, nrow=1)}
           param_current[,3] <- 1/param_current[,3] #convert to shape/rate
           mode <- (param_current[,2]-1)/param_current[,3]
           param_current <- param_current[order(mode),]
@@ -154,6 +157,7 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
             constraint <- init.constraint
             message('Bad parameter values, restarting with new initial parameters.')
             param.init <- param_current <- simplify2array(mixtools::gammamix.init(x, lambda, alpha, beta, k = k)[1:3])
+            if(is.null(dim(param_current))){param_current <- matrix(param_current, nrow=1)}
             param_current[,3] <- 1/param_current[,3] #convert to shape/rate
             mode <- (param_current[,2]-1)/param_current[,3]
             param_current <- param_current[order(mode),]
@@ -172,6 +176,7 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
         constraint <- init.constraint
         message('Bad parameter values, restarting with new initial parameters.')
         param.init <- param_current <- simplify2array(mixtools::gammamix.init(x, lambda, alpha, beta, k = k)[1:3])
+        if(is.null(dim(param_current))){param_current <- matrix(param_current, nrow=1)}
         param_current[,3] <- 1/param_current[,3] #convert to shape/rate
         mode <- (param_current[,2]-1)/param_current[,3]
         param_current <- param_current[order(mode),]
@@ -180,11 +185,12 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
         m.log_lik_new <-  -Inf
         m.diff.conv <- Inf
       }
-      if(k==1){
+      if(k<1){
         message('no more components, restart')
         k <- init.k
         constraint <- init.constraint
         param.init <- param_current <- simplify2array(mixtools::gammamix.init(x, lambda, alpha, beta, k = k)[1:3])
+        if(is.null(dim(param_current))){param_current <- matrix(param_current, nrow=1)}
         param_current[,3] <- 1/param_current[,3] #convert to shape/rate
         mode <- (param_current[,2]-1)/param_current[,3]
         param_current <- param_current[order(mode),]
@@ -199,6 +205,7 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
         k <- init.k
         constraint <- init.constraint
         param.init <- param_current <- simplify2array(mixtools::gammamix.init(x, lambda, alpha, beta, k = k)[1:3])
+        if(is.null(dim(param_current))){param_current <- matrix(param_current, nrow=1)}
         param_current[,3] <- 1/param_current[,3] #convert to shape/rate
         mode <- (param_current[,2]-1)/param_current[,3]
         param_current <- param_current[order(mode),]
@@ -216,7 +223,7 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
   final.result <- result4[[which.max(likelihood4)]]
   final.loglik.all <- all.loglik4[[which.max(likelihood4)]]
   final.lambda <- final.result[["param_at_conv"]][,1]
-  final.pars <- t(final.result[["param_at_conv"]][,2:3])
+  final.pars <- matrix(final.result[["param_at_conv"]][,2:3], nrow=2, byrow=TRUE)
   final.pars[2,] <- 1/final.pars[2,]
   final.lik <- max(likelihood4)
   final.z <- final.result[["z"]]
