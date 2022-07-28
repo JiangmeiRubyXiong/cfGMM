@@ -19,7 +19,8 @@ data.gamma <- c(rgamma(sum(ind==1), shape=a[1], rate=b[1]),
                  rgamma(sum(ind==2), shape=a[2], rate=b[2]))
                  
 ## run the model
-out <- cfGMM(data.gamma, k=2)
+library(cfGMM)
+out <- cfGMM::cfGMM(data.gamma, k=2)
 out[["gamma.pars"]] # output shape and scale paramter
 out[["lambda"]] # output lambda paramter
 ```
