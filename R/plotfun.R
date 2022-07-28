@@ -15,11 +15,6 @@ plotGammaMix <- function(cfGMM.list, zero_include=FALSE, breaks=40){
   pars <- cfGMM.list$gamma.pars
   lambda <- cfGMM.list$lambda
 
-  # option to include zero in histogram, but will not show in curve
-  if(pars[1,1]==0 & (!zero_include)){
-    x=x[x!=0]
-    pars[,-1]}
-
   num.comp <- ncol(pars)
   ys <- matrix(NA, nrow=num.comp, ncol=length(xs))
 

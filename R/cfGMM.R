@@ -57,6 +57,7 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
   result4 <- list()
   likelihood4 <- rep(NA,n.rerun)
   all.loglik4 <- list()
+  j=1
   for(j in 1:n.rerun){
     param.init <- param_current <- simplify2array(mixtools::gammamix.init(x, lambda, alpha, beta, k = k)[1:3])
     if(is.null(dim(param_current))){param_current <- matrix(param_current, nrow=1)}
@@ -220,7 +221,9 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
     all.loglik4[[j]] <- m.loglik.all
     result4[[j]] <- list(param_at_conv=param_current, param.init=param.init, z=phi_out, convergence=convergence, nrestarts=nrestarts)
   }
-  final.result <- result4[[which.max(likelihood4)]]
+  convs <- c(result4[[1]][["convergence"]],result4[[2]][["convergence"]],result4[[3]][["convergence"]],result4[[4]][["convergence"]])
+  if(any(convs)){which.conv <- which(convs)}else{which.conv <- 1:4}
+  final.result <- result4[[which.max(likelihood4[which.conv])]]
   final.loglik.all <- all.loglik4[[which.max(likelihood4)]]
   final.lambda <- final.result[["param_at_conv"]][,1]
   final.pars <- matrix(final.result[["param_at_conv"]][,2:3], nrow=2, byrow=TRUE)
