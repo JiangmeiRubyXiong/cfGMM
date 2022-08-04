@@ -9,7 +9,7 @@
 #' \item{out}{The histogram.}
 #' @export
 
-plotGammaMix <- function(cfGMM.list, zero_include=FALSE, breaks=40){
+plotGammaMix <- function(cfGMM.list, zero_include=FALSE, breaks=40,main="histogram of x"){
   x <- cfGMM.list$x
   xs <- (1:100)/100*max(x)
   pars <- cfGMM.list$gamma.pars
@@ -23,8 +23,8 @@ plotGammaMix <- function(cfGMM.list, zero_include=FALSE, breaks=40){
   }
 
   # Generate Plot
-  list.hist <- hist(x, freq=F, xlim=range(x), breaks=breaks)
-  hist(x, freq=F, xlim=range(x), ylim=c(0,max(ys,  max(list.hist$density))), breaks=breaks)
+  list.hist <- hist(x, freq=F, xlim=range(x), breaks=breaks, plot = FALSE)
+  hist(x, freq=F, xlim=range(x), ylim=c(0,max(ys,  max(list.hist$density))), breaks=breaks, main = main)
   for(i in 1:num.comp){
     lines(xs, ys[i,],col=(i+2),lty=1,lwd=2)
   }
