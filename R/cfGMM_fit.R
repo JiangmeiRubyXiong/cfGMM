@@ -1,6 +1,6 @@
 #' Closed-form Gamma Mixture Model estimation.
-#' This function returns estimated parameters for Gamma Mixture Model using EM algoritm with cclosed-form estimators.
 #'
+#' This function returns estimated parameters for Gamma Mixture Model using EM algoritm with cclosed-form estimators.
 #' @param x Data vector
 #' @param k Number of components. Integer that is greater or equal to 2.
 #' @param alpha (optional) shape starting value. Can be either a vector with length k or a constant. If the input is vector and there is NA in the vector, the NAs will be filled with MOM estimator. If the input is a constant, the initial value of a will be a vector of length k. If not specified, the initial value will be a vector of values near MOM estimator. All numerical values input should be greater than 0.
@@ -222,7 +222,7 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
     result4[[j]] <- list(param_at_conv=param_current, param.init=param.init, z=phi_out, convergence=convergence, nrestarts=nrestarts)
   }
   convs <- c(result4[[1]][["convergence"]],result4[[2]][["convergence"]],result4[[3]][["convergence"]],result4[[4]][["convergence"]])
-  if(any(convs)){which.conv <- which(convs)}else{which.conv <- 1:4}
+  if(any(convs)){which.conv <- which(convs)
   final.result <- result4[[which.max(likelihood4[which.conv])]]
   final.loglik.all <- all.loglik4[[which.max(likelihood4)]]
   final.lambda <- final.result[["param_at_conv"]][,1]
@@ -235,6 +235,6 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
   final.restart <- final.result[["nrestarts"]]
 
   output <- list(x=x, lambda=final.lambda, gamma.pars=final.pars, loglik=final.lik, posterior=final.z, all.loglik=final.loglik.all, convergence = final.conv, nrestart=final.restart,ft="cfGMM")
-
+  }else{output="Did not converge. Consider increase max.iter or check input."}
   return(output)
 }

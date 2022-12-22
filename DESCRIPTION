@@ -9,11 +9,15 @@ License: GPL-3
 Encoding: UTF-8
 LazyData: true
 Collate:
-    'cfGMM.R'
+    'cfGMM_fit.R'
     'dbk.R'
     'plotfun.R'
+    'cfGMM-package.R'
 Imports:
-  mixtools,
-  stats,
-  graphics
+    mixtools,
+    stats,
+    graphics,
+    ggplot2,
+    hrbrthemes,
+    rlang
 RoxygenNote: 7.1.2

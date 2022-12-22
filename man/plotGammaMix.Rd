@@ -4,7 +4,13 @@
 \alias{plotGammaMix}
 \title{Plot Function}
 \usage{
-plotGammaMix(cfGMM.list, zero_include = FALSE, breaks = 40)
+plotGammaMix(
+  cfGMM.list,
+  zero_include = FALSE,
+  breaks = 40,
+  main = "histogram of x",
+  threshold = 0
+)
 }
 \arguments{
 \item{cfGMM.list}{output from function cfGMM}
@@ -12,10 +18,14 @@ plotGammaMix(cfGMM.list, zero_include = FALSE, breaks = 40)
 \item{zero_include}{logical. Whether to include 0 in the dataset to histogram, if any.}
 
 \item{breaks}{integer. Number of breaks in the histogram}
+
+\item{main}{Title of histogram}
+
+\item{threshold}{Threshold specified for cfgmm fit}
 }
 \value{
 \item{out}{The histogram.}
 }
 \description{
-Plot Function
+This function makes plot using cfGMM function output.
 }
