@@ -18,6 +18,7 @@
 plotGammaMix <- function(cfGMM.list, zero_include=FALSE, breaks=40, main="histogram of x", threshold=0){
   x <- cfGMM.list$x
   xs <- (1:100)/100*max(x)
+  p.range <- range(xs)
   pars <- cfGMM.list$gamma.pars
   posteriors <- cfGMM.list$posterior
   lambda <- colMeans(posteriors[posteriors[,2]!=0,])
@@ -25,11 +26,11 @@ plotGammaMix <- function(cfGMM.list, zero_include=FALSE, breaks=40, main="histog
   fun1 <- function(xs){lambda[1] * dgamma(xs, shape=pars[1,1],scale=pars[2,1])}
   fun2 <- function(xs){lambda[2]  * dgamma(xs, shape=pars[1,2],scale=pars[2,2])}
   plot.x <- as.data.frame(x)
-  p <- ggplot2::ggplot(plot.x, ggplot2::aes(x=x)) +
+  p <- ggplot2::ggplot(plot.x, ggplot2::aes(x, after_stat(density))) +
     ggplot2::ylab("")+hrbrthemes::theme_ipsum()+ggplot2::ggtitle(main)+
-    ggplot2::geom_histogram(ggplot2::aes(y = ggplot2::after_stat(stats::density)), bins = breaks, alpha=0.2)+
-    ggplot2::stat_function(fun = fun1, n = 101, alpha=0.3, color="forestgreen", xlim=c(min(xs), max(xs))) +
-    ggplot2::stat_function(fun = fun2, n = 101, alpha=0.3, color="red", xlim=c(min(xs), max(xs))) +
+    ggplot2::geom_histogram(bins = breaks, alpha=0.2)+
+    ggplot2::stat_function(fun = fun1, n = 101, alpha=0.3, color="forestgreen", xlim=p.range) +
+    ggplot2::stat_function(fun = fun2, n = 101, alpha=0.3, color="red", xlim=p.range) +
     ggplot2::geom_vline(xintercept=threshold, linetype="dashed", color = "gray")
   print(p)
 }
