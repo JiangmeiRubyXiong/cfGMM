@@ -25,11 +25,11 @@ plotGammaMix <- function(cfGMM.list, zero_include=FALSE, breaks=40, main="histog
   fun1 <- function(xs){lambda[1] * dgamma(xs, shape=pars[1,1],scale=pars[2,1])}
   fun2 <- function(xs){lambda[2]  * dgamma(xs, shape=pars[1,2],scale=pars[2,2])}
   plot.x <- as.data.frame(x)
-  p <- ggplot2::ggplot(plot.x, ggplot2::aes(x=x)) + ggplot2::xlim(min(xs), max(xs))+
+  p <- ggplot2::ggplot(plot.x, ggplot2::aes(x=x)) +
     ggplot2::ylab("")+hrbrthemes::theme_ipsum()+ggplot2::ggtitle(main)+
     ggplot2::geom_histogram(ggplot2::aes(y = ggplot2::after_stat(stats::density)), bins = breaks, alpha=0.2)+
-    ggplot2::stat_function(fun = fun1, n = 101, alpha=0.3, color="forestgreen") +
-    ggplot2::stat_function(fun = fun2, n = 101, alpha=0.3, color="red") +
+    ggplot2::stat_function(fun = fun1, n = 101, alpha=0.3, color="forestgreen", xlim=c(min(xs), max(xs))) +
+    ggplot2::stat_function(fun = fun2, n = 101, alpha=0.3, color="red", xlim=c(min(xs), max(xs))) +
     ggplot2::geom_vline(xintercept=threshold, linetype="dashed", color = "gray")
   print(p)
 }
