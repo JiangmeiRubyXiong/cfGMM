@@ -12,7 +12,6 @@ Collate:
     'cfGMM_fit.R'
     'dbk.R'
     'plotfun.R'
-    'cfGMM-package.R'
 Imports:
     mixtools,
     stats,
@@ -20,4 +19,4 @@ Imports:
     ggplot2,
     hrbrthemes,
     rlang
-RoxygenNote: 7.1.2
+RoxygenNote: 7.2.3
