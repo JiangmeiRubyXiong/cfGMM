@@ -222,7 +222,13 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
     result4[[j]] <- list(param_at_conv=param_current, param.init=param.init, z=phi_out, convergence=convergence, nrestarts=nrestarts)
   }
   convs <- c(result4[[1]][["convergence"]],result4[[2]][["convergence"]],result4[[3]][["convergence"]],result4[[4]][["convergence"]])
-  if(any(convs)){which.conv <- which(convs)
+  # if they all failed to converge just return results for first run
+  if(all(!convs)){
+   which.conv <- 1
+  # else return the first one that converged
+  } else {
+  which.conv <- which(convs)
+  }
   final.result <- result4[[which.max(likelihood4[which.conv])]]
   final.loglik.all <- all.loglik4[[which.max(likelihood4)]]
   final.lambda <- final.result[["param_at_conv"]][,1]
@@ -235,6 +241,5 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
   final.restart <- final.result[["nrestarts"]]
 
   output <- list(x=x, lambda=final.lambda, gamma.pars=final.pars, loglik=final.lik, posterior=final.z, all.loglik=final.loglik.all, convergence = final.conv, nrestart=final.restart,ft="cfGMM")
-  }else{output="Did not converge. Consider increase max.iter or check input."}
   return(output)
 }
