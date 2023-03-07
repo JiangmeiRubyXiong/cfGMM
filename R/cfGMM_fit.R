@@ -233,6 +233,7 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
   final.loglik.all <- all.loglik4[[which.max(likelihood4)]]
   final.lambda <- final.result[["param_at_conv"]][,1]
   final.pars <- matrix(final.result[["param_at_conv"]][,2:3], nrow=2, byrow=TRUE)
+  final.pars <- final.pars[,order(final.result[["param_at_conv"]][,1])]
   final.pars[2,] <- 1/final.pars[2,]
   dimnames(final.pars) <- list(c("alpha", "beta"),paste("comp.", 1:ncol(final.pars), sep=""))
   final.lik <- max(likelihood4)
