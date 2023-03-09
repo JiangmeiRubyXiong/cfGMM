@@ -240,7 +240,7 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
   dimnames(final.pars) <- list(c("alpha", "beta"),paste("comp.", 1:ncol(final.pars), sep=""))
   final.lambda <- final.lambda[order.comp]
   final.lik <- max(likelihood4)
-  final.z <- final.result[["z"]][order.comp]
+  final.z <- final.result[["z"]][,order.comp]
   final.conv <- final.result[["convergence"]]
   final.restart <- final.result[["nrestarts"]]
 
