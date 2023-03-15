@@ -18,10 +18,31 @@ out[["lambda"]]
 out2[["gamma.pars"]]
 out2[["lambda"]]
 
-nbins = 256
+# Check that binned fit is the same as regular fit
 x = do.call(rbind, by(data.gamma, cut(data.gamma, breaks = nbins, include.lowest = TRUE), function(x) c(mean(x), length(x)) ))
 out3 = cfGMM(x[,1], k=2, weights=x[,2], diff.conv = 1e-9)
-out4 = cfGMM(rep(x[,1], x[,2]), k=2, diff.conv = 1e-9)
+out4 = cfGMM(rep(x[,1], x[,2]), k=2, weights=rep(1, length(data.gamma)), diff.conv = 1e-9)
+
+out3[["gamma.pars"]]
+out3[["lambda"]]
+
+out4[["gamma.pars"]]
+out4[["lambda"]]
+
+# Check that constrained fit with weights is close to binned constrained fit with weights
+constraint = matrix(c(-Inf,2, 24, Inf), byrow=TRUE, nrow=2)
+out5 <- cfGMM(data.gamma, weights=rep(1, length(data.gamma)), k=2, constraint=constraint, diff.conv = 1e-9)
+x = do.call(rbind, by(data.gamma, cut(data.gamma, breaks = 5000, include.lowest = TRUE), function(x) c(mean(x), length(x)) ))
+out6 = cfGMM(rep(x[,1], x[,2]), k=2, constraint=constraint, diff.conv = 1e-9)
+
+out5[["gamma.pars"]]
+out5[["lambda"]]
+out6[["gamma.pars"]]
+out6[["lambda"]]
+
+# Check constrained binned fit is the same as constrained regular fit
+out3 = cfGMM(x[,1], k=2, weights=x[,2], constraint=constraint, diff.conv = 1e-9)
+out4 = cfGMM(rep(x[,1], x[,2]), k=2, weights=rep(1, length(data.gamma)), constraint=constraint, diff.conv = 1e-9)
 
 out3[["gamma.pars"]]
 out3[["lambda"]]

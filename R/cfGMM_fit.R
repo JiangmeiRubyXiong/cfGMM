@@ -49,18 +49,28 @@
 
 cfGMM <- function(x, k, weights=NULL, alpha=NULL, beta=NULL, lambda=NULL, nbins=NULL, n.rerun=4, diff.conv=1e-6, max.iter=1e3, max.restarts = 20, max.comp=FALSE, min.lambda=1e-4, constraint=NULL)
 {
+
+  if(any(x==0)){stop('Data must be strictly positive.')}
+  if(k<1){stop('k must be greater or equal to 1')}
+  init.k <- k
+  init.constraint <- constraint
   n <- length(x)
+
   if(!is.null(nbins)){
     y = x
     weights = do.call(rbind, by(data.gamma, cut(data.gamma, breaks = nbins, include.lowest = TRUE), function(x) c(mean(x), length(x)) ))
     x = weights[,1]
     weights = weights[,2]
+  } else if(is.null(weights)){
+    sx = table(x)
+    if(length(sx)<n){
+      y = x
+      weights=c(sx)
+      x = as.numeric(names(sx))
+    }
   }
-  if(any(x==0)){stop('Data must be strictly positive.')}
   if(!is.null(weights)) weights = weights/sum(weights)*n else weights = rep(1, n)
-  if(k<1){stop('k must be greater or equal to 1')}
-  init.k <- k
-  init.constraint <- constraint
+
   # Getting started with initial values. If not specified, initial value will be replaced with a value near MOM estimator.
   # removes 4th element, which is k
   result4 <- list()
@@ -118,11 +128,11 @@ cfGMM <- function(x, k, weights=NULL, alpha=NULL, beta=NULL, lambda=NULL, nbins=
             mode <- (param_current[i,2]-1)/param_current[i,3]
             #used the function at the beginning to solve for beta
             if (mode > upper){
-              param_current[i,3] <- 1/(uniroot(f=optimize_derivative, interval = c(1e-5,1e6), mk=upper, phi.vec=phi_out[,i], x=x)$root)
+              param_current[i,3] <- 1/(uniroot(f=optimize_derivative, interval = c(1e-5,1e6), mk=upper, phi.vec=phi_out[,i], x=x, weights=weights)$root)
               param_current[i,2] <- param_current[i,3]* upper +1
               #print(c(param_current[i,3], mode))
             } else if (mode < lower){
-              param_current[i,3] <- 1/(uniroot(f=optimize_derivative, interval = c(1e-5,1e6), mk=lower, phi.vec=phi_out[,i], x=x)$root)
+              param_current[i,3] <- 1/(uniroot(f=optimize_derivative, interval = c(1e-5,1e6), mk=lower, phi.vec=phi_out[,i], x=x, weights=weights)$root)
               param_current[i,2] <- param_current[i,3]* lower+1
               #print(c(param_current[i,3], mode))
             }
