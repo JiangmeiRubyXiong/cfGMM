@@ -55,16 +55,14 @@ cfGMM <- function(x, k, weights=NULL, alpha=NULL, beta=NULL, lambda=NULL, nbins=
   init.k <- k
   init.constraint <- constraint
   n <- length(x)
-
+  y = x
   if(!is.null(nbins)){
-    y = x
     weights = do.call(rbind, by(data.gamma, cut(data.gamma, breaks = nbins, include.lowest = TRUE), function(x) c(mean(x), length(x)) ))
     x = weights[,1]
     weights = weights[,2]
   } else if(is.null(weights)){
     sx = table(x)
     if(length(sx)<n){
-      y = x
       weights=c(sx)
       x = as.numeric(names(sx))
     }
@@ -269,6 +267,6 @@ cfGMM <- function(x, k, weights=NULL, alpha=NULL, beta=NULL, lambda=NULL, nbins=
   final.conv <- final.result[["convergence"]]
   final.restart <- final.result[["nrestarts"]]
 
-  output <- list(x=x, lambda=final.lambda, gamma.pars=final.pars, loglik=final.lik, posterior=final.z, all.loglik=final.loglik.all, convergence = final.conv, nrestart=final.restart,ft="cfGMM")
+  output <- list(x=y, lambda=final.lambda, gamma.pars=final.pars, loglik=final.lik, posterior=final.z, all.loglik=final.loglik.all, convergence = final.conv, nrestart=final.restart,ft="cfGMM")
   return(output)
 }
