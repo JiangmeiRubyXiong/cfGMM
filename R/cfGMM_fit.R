@@ -62,7 +62,8 @@ cfGMM <- function(x, k, weights=NULL, alpha=NULL, beta=NULL, lambda=NULL, nbins=
     weights = weights[,2]
   } else if(is.null(weights)){
     sx = table(x)
-    if(length(sx)<n){
+    nbins = length(sx)
+    if(nbins<n){
       weights=c(sx)
       x = as.numeric(names(sx))
     }
@@ -237,7 +238,7 @@ cfGMM <- function(x, k, weights=NULL, alpha=NULL, beta=NULL, lambda=NULL, nbins=
     likelihood4[j] <- m.log_lik_new
     all.loglik4[[j]] <- m.loglik.all
     # if data were binned compute probabilities for unbinned data
-    if(!is.null(nbins)){
+    if(nbins<n ){
       phi_out <- apply(param_current, 1, function(param) dgamma(y,shape=param[2],rate=param[3])*param[1] )
       # divide by their sum (Bayes rule)
       phi_out <- sweep(phi_out, 1, rowSums(phi_out), FUN = '/' )
