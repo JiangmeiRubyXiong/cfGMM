@@ -3,9 +3,11 @@
 #' This function returns estimated parameters for Gamma Mixture Model using EM algoritm with cclosed-form estimators.
 #' @param x Data vector
 #' @param k Number of components. Integer that is greater or equal to 2.
+#' @param weights A vector of length equal to the length of x with weights.
 #' @param alpha (optional) shape starting value. Can be either a vector with length k or a constant. If the input is vector and there is NA in the vector, the NAs will be filled with MOM estimator. If the input is a constant, the initial value of a will be a vector of length k. If not specified, the initial value will be a vector of values near MOM estimator. All numerical values input should be greater than 0.
 #' @param beta (optional) scale starting value. Same specification as init.val.a
 #' @param lambda (optional) Can be either a matrix with nrow=length(xtor) and ncol=k, or a vector with length k. NA value matrix input is not allowed. If the input is vector, the initial value would be a matrix with nrow=length(xtor) and repeated rows of the vector input. If the input is not specified, the initial phi matrix is a nrow=length(xtor) and ncol=k with all elements equal to 1/k.
+#' @param nbins (optional) To reduce computing time bin x to nbins bins.
 #' @param n.rerun (optional) Integer greater or equal to 1. This is the number of times the EM algorithm starting at different values, and the result returned will be from the run with highest mean log-likelihood. When there isn't constraint, the complexity of model with k>2 calls for more restarts for result accuracy. Defaults to be 4.
 #' @param diff.conv (optional) default to 1e-5
 #' @param max.iter (optional) default to 1e3
@@ -45,10 +47,17 @@
 #' @export
 
 
-cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv=1e-6, max.iter=1e3, max.restarts = 20, max.comp=FALSE, min.lambda=1e-4, constraint=NULL)
+cfGMM <- function(x, k, weights=NULL, alpha=NULL, beta=NULL, lambda=NULL, nbins=NULL, n.rerun=4, diff.conv=1e-6, max.iter=1e3, max.restarts = 20, max.comp=FALSE, min.lambda=1e-4, constraint=NULL)
 {
   n <- length(x)
+  if(!is.null(nbins)){
+    y = x
+    weights = do.call(rbind, by(data.gamma, cut(data.gamma, breaks = nbins, include.lowest = TRUE), function(x) c(mean(x), length(x)) ))
+    x = weights[,1]
+    weights = weights[,2]
+  }
   if(any(x==0)){stop('Data must be strictly positive.')}
+  if(!is.null(weights)) weights = weights/sum(weights)*n else weights = rep(1, n)
   if(k<1){stop('k must be greater or equal to 1')}
   init.k <- k
   init.constraint <- constraint
@@ -89,14 +98,14 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
       phi_out <- sweep(phi_out, 1, rowSums(phi_out), FUN = '/' )
 
       # step 3
-      # Compute
-      param_current[,1] <- colSums(phi_out)
-      # this is the denominator?
-      param_current[,2] <- param_current[,1] * colSums(phi_out*x*log(x))-
-        colSums(phi_out*log(x))*colSums(phi_out*x)
-      param_current[,3] <- ((param_current[,1])^2)/param_current[,2]
-      param_current[,2] <- (param_current[,1] * colSums(phi_out*x))/param_current[,2]
-      param_current[,1] <- param_current[,1]/n
+        # Compute
+        param_current[,1] <- colSums(phi_out*weights)
+        # this is the denominator?
+        param_current[,2] <- param_current[,1] * colSums(phi_out*x*log(x)*weights)-
+          colSums(phi_out*log(x)*weights)*colSums(phi_out*x*weights)
+        param_current[,3] <- ((param_current[,1])^2)/param_current[,2]
+        param_current[,2] <- (param_current[,1] * colSums(phi_out*x*weights))/param_current[,2]
+        param_current[,1] <- param_current[,1]/n
 
       #print(param_current) # prints old parameters
       if(!any(is.infinite(param_current)|is.nan(param_current))){
@@ -219,6 +228,12 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
     convergence <-  m.diff.conv <= diff.conv
     likelihood4[j] <- m.log_lik_new
     all.loglik4[[j]] <- m.loglik.all
+    # if data were binned compute probabilities for unbinned data
+    if(!is.null(nbins)){
+      phi_out <- apply(param_current, 1, function(param) dgamma(y,shape=param[2],rate=param[3])*param[1] )
+      # divide by their sum (Bayes rule)
+      phi_out <- sweep(phi_out, 1, rowSums(phi_out), FUN = '/' )
+    }
     result4[[j]] <- list(param_at_conv=param_current, param.init=param.init, z=phi_out, convergence=convergence, nrestarts=nrestarts)
   }
   convs <- c(result4[[1]][["convergence"]],result4[[2]][["convergence"]],result4[[3]][["convergence"]],result4[[4]][["convergence"]])
