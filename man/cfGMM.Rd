@@ -7,11 +7,9 @@
 cfGMM(
   x,
   k,
-  weights = NULL,
   alpha = NULL,
   beta = NULL,
   lambda = NULL,
-  nbins = NULL,
   n.rerun = 4,
   diff.conv = 1e-06,
   max.iter = 1000,
@@ -26,15 +24,11 @@ cfGMM(
 
 \item{k}{Number of components. Integer that is greater or equal to 2.}
 
-\item{weights}{A vector of length equal to the length of x with weights.}
-
 \item{alpha}{(optional) shape starting value. Can be either a vector with length k or a constant. If the input is vector and there is NA in the vector, the NAs will be filled with MOM estimator. If the input is a constant, the initial value of a will be a vector of length k. If not specified, the initial value will be a vector of values near MOM estimator. All numerical values input should be greater than 0.}
 
 \item{beta}{(optional) scale starting value. Same specification as init.val.a}
 
 \item{lambda}{(optional) Can be either a matrix with nrow=length(xtor) and ncol=k, or a vector with length k. NA value matrix input is not allowed. If the input is vector, the initial value would be a matrix with nrow=length(xtor) and repeated rows of the vector input. If the input is not specified, the initial phi matrix is a nrow=length(xtor) and ncol=k with all elements equal to 1/k.}
-
-\item{nbins}{(optional) To reduce computing time bin x to nbins bins.}
 
 \item{n.rerun}{(optional) Integer greater or equal to 1. This is the number of times the EM algorithm starting at different values, and the result returned will be from the run with highest mean log-likelihood. When there isn't constraint, the complexity of model with k>2 calls for more restarts for result accuracy. Defaults to be 4.}
 
