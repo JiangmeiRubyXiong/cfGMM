@@ -109,31 +109,21 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
             mode <- (param_current[i,2]-1)/param_current[i,3]
             #used the function at the beginning to solve for beta
             if (mode > upper){
-              param_current[i,3] <- tryCatch(
-                {1/(uniroot(f=optimize_derivative, interval = c(1e-5,1e6), mk=upper, phi.vec=phi_out[,i], x=x)$root)},
-                error=function(e){return(NA)}
-              )
-              param_current[i,2] <- ifelse(is.na(param_current[i,3]), NA, param_current[i,3]* upper +1)
+              param_current[i,3] <- 1/(uniroot(f=optimize_derivative, interval = c(1e-5,1e6), mk=upper, phi.vec=phi_out[,i], x=x)$root)
+              param_current[i,2] <- param_current[i,3]* upper +1
               #print(c(param_current[i,3], mode))
             } else if (mode < lower){
-              param_current[i,3] <- tryCatch(
-                {1/(uniroot(f=optimize_derivative, interval = c(1e-5,1e6), mk=lower, phi.vec=phi_out[,i], x=x)$root)},
-                error=function(e){return(NA)}
-              )
-              ifelse(is.na(param_current[i,3]), NA, param_current[i,3]* lower +1)
+              param_current[i,3] <- 1/(uniroot(f=optimize_derivative, interval = c(1e-5,1e6), mk=lower, phi.vec=phi_out[,i], x=x)$root)
+              param_current[i,2] <- param_current[i,3]* lower+1
               #print(c(param_current[i,3], mode))
             }
           }
         }
-        if(any(is.na(param_current))){
-          m.log_lik_new <- NA
-        } else {
-          if(is.null(dim(param_current))){param_current <- matrix(param_current, nrow=1)}
-          log_lik_new <- apply(param_current, MARGIN = 1,
-                               FUN = function(a, x){a[1]*dgamma(x, shape =a[2] , rate=a[3])}, x=x )
-          m.log_lik_new <- mean(log(rowSums(log_lik_new)))
-          m.loglik.all <- c(m.loglik.all, m.log_lik_new)
-        }
+        if(is.null(dim(param_current))){param_current <- matrix(param_current, nrow=1)}
+        log_lik_new <- apply(param_current, MARGIN = 1,
+                             FUN = function(a, x){a[1]*dgamma(x, shape =a[2] , rate=a[3])}, x=x )
+        m.log_lik_new <- mean(log(rowSums(log_lik_new)))
+        m.loglik.all <- c(m.loglik.all, m.log_lik_new)
         if(is.nan(m.log_lik_new)){
           message('Likelihood NaN, restart')
           k <- init.k
