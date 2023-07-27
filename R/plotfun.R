@@ -26,9 +26,9 @@ plotGammaMix <- function(cfGMM.list, zero_include=FALSE, breaks=40, main="histog
   fun1 <- function(xs){lambda[1] * dgamma(xs, shape=pars[1,1],scale=pars[2,1])}
   fun2 <- function(xs){lambda[2]  * dgamma(xs, shape=pars[1,2],scale=pars[2,2])}
   plot.x <- as.data.frame(x)
-  p <- ggplot2::ggplot(plot.x) +
+  p <- ggplot2::ggplot(plot.x, ggplot2::aes(x, after_stat(density))) +
     ggplot2::ylab("")+hrbrthemes::theme_ipsum()+ggplot2::ggtitle(main)+
-    ggplot2::geom_histogram(ggplot2::aes(x, after_stat(density)), bins = breaks, alpha=0.2)+
+    ggplot2::geom_histogram(bins = breaks, alpha=0.2)+
     ggplot2::stat_function(fun = fun1, n = 101, alpha=0.3, color="forestgreen", xlim=p.range) +
     ggplot2::stat_function(fun = fun2, n = 101, alpha=0.3, color="red", xlim=p.range) +
     ggplot2::geom_vline(xintercept=threshold, linetype="dashed", color = "gray")

@@ -4,7 +4,7 @@
 \alias{optimize_derivative}
 \title{Function with the constraint}
 \usage{
-optimize_derivative(bk, mk, x, phi.vec, weights)
+optimize_derivative(bk, mk, x, phi.vec)
 }
 \arguments{
 \item{bk}{scale}
@@ -14,8 +14,6 @@ optimize_derivative(bk, mk, x, phi.vec, weights)
 \item{x}{data vector}
 
 \item{phi.vec}{phi}
-
-\item{weights}{weights for each observation}
 }
 \description{
 Function with the constraint
