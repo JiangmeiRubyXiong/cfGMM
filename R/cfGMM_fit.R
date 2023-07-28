@@ -109,11 +109,25 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
             mode <- (param_current[i,2]-1)/param_current[i,3]
             #used the function at the beginning to solve for beta
             if (mode > upper){
-              param_current[i,3] <- 1/(uniroot(f=optimize_derivative, interval = c(1e-5,1e6), mk=upper, phi.vec=phi_out[,i], x=x)$root)
+              param_current[i,3] <- tryCatch(
+                {result=1/(uniroot(f=optimize_derivative, interval = c(1e-5,1e6), mk=upper, phi.vec=phi_out[,i], x=x)$root)
+                return(result)
+                },
+                error=function(e){
+                  m.log_lik_new <- NaN
+                  return(NA)
+                })
               param_current[i,2] <- param_current[i,3]* upper +1
               #print(c(param_current[i,3], mode))
             } else if (mode < lower){
-              param_current[i,3] <- 1/(uniroot(f=optimize_derivative, interval = c(1e-5,1e6), mk=lower, phi.vec=phi_out[,i], x=x)$root)
+              param_current[i,3] <- tryCatch(
+                {result=1/(uniroot(f=optimize_derivative, interval = c(1e-5,1e6), mk=lower, phi.vec=phi_out[,i], x=x)$root)
+                return(result)
+                },
+                error=function(e){
+                  m.log_lik_new <- NaN
+                  return(NA)
+                })
               param_current[i,2] <- param_current[i,3]* lower+1
               #print(c(param_current[i,3], mode))
             }
