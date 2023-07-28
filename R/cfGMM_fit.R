@@ -114,9 +114,9 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
                 return(result)
                 },
                 error=function(e){
-                  m.log_lik_new <- NaN
                   return(NA)
                 })
+              if(is.na(param_current[i,3]))m.log_lik_new <- NaN
               param_current[i,2] <- param_current[i,3]* upper +1
               #print(c(param_current[i,3], mode))
             } else if (mode < lower){
@@ -125,9 +125,9 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
                 return(result)
                 },
                 error=function(e){
-                  m.log_lik_new <- NaN
                   return(NA)
                 })
+              if(is.na(param_current[i,3]))m.log_lik_new <- NaN
               param_current[i,2] <- param_current[i,3]* lower+1
               #print(c(param_current[i,3], mode))
             }
