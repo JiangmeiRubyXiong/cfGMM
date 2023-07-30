@@ -47,6 +47,16 @@
 
 cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv=1e-6, max.iter=1e3, max.restarts = 20, max.comp=FALSE, min.lambda=1e-4, constraint=NULL)
 {
+  #try catch with uniroot
+  unirootTryCatch <- function(bound){
+      tryCatch(
+      {result=1/(uniroot(f=optimize_derivative, interval = c(1e-5,1e6), mk=bound, phi.vec=phi_out[,i], x=x)$root)
+      return(result)
+      },
+      error=function(e){
+        return(NA)
+      })
+  }
   n <- length(x)
   if(any(x==0)){stop('Data must be strictly positive.')}
   if(k<1){stop('k must be greater or equal to 1')}
@@ -109,24 +119,12 @@ cfGMM <- function(x, k, alpha=NULL, beta=NULL, lambda=NULL, n.rerun=4, diff.conv
             mode <- (param_current[i,2]-1)/param_current[i,3]
             #used the function at the beginning to solve for beta
             if (mode > upper){
-              param_current[i,3] <- tryCatch(
-                {result=1/(uniroot(f=optimize_derivative, interval = c(1e-5,1e6), mk=upper, phi.vec=phi_out[,i], x=x)$root)
-                return(result)
-                },
-                error=function(e){
-                  return(NA)
-                })
+              param_current[i,3] <- unirootTryCatch(upper)
               if(is.na(param_current[i,3]))m.log_lik_new <- NaN
               param_current[i,2] <- param_current[i,3]* upper +1
               #print(c(param_current[i,3], mode))
             } else if (mode < lower){
-              param_current[i,3] <- tryCatch(
-                {result=1/(uniroot(f=optimize_derivative, interval = c(1e-5,1e6), mk=lower, phi.vec=phi_out[,i], x=x)$root)
-                return(result)
-                },
-                error=function(e){
-                  return(NA)
-                })
+              param_current[i,3] <- unirootTryCatch(lower)
               if(is.na(param_current[i,3]))m.log_lik_new <- NaN
               param_current[i,2] <- param_current[i,3]* lower+1
               #print(c(param_current[i,3], mode))
