@@ -57,7 +57,8 @@ cfGMM <- function(x, k, weights=NULL, alpha=NULL, beta=NULL, lambda=NULL, nbins=
   n <- length(x)
   y = x
   if(!is.null(nbins)){
-    weights = do.call(rbind, by(data.gamma, cut(data.gamma, breaks = nbins, include.lowest = TRUE), function(x) c(mean(x), length(x)) ))
+    weights = do.call(rbind, by(x, cut(x, breaks = nbins, include.lowest =
+TRUE), function(sub) c(mean(sub), length(sub)) ))
     x = weights[,1]
     weights = weights[,2]
   } else if(is.null(weights)){
