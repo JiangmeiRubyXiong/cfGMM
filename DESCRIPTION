@@ -12,7 +12,6 @@ Collate:
     'cfGMM_fit.R'
     'dbk.R'
     'plotfun.R'
-    'cfGMM-package.R'
 Imports:
     mixtools,
     stats,
