@@ -1,9 +1,9 @@
-devtools::load_all('./')
 set.seed(1)
 phi <- c(0.3, 0.7) # mixing proportion
 a <- c(0.5, 8) #shape
 b <- c(1/2, 1/3) #scale
 n <- 10000 #data size
+nbins = 256
 ind <- sample(c(1,2) ,size=n, replace = TRUE, prob = phi)
 data.gamma <- c(rgamma(sum(ind==1), shape=a[1], rate=b[1]),
                 rgamma(sum(ind==2), shape=a[2], rate=b[2]))
