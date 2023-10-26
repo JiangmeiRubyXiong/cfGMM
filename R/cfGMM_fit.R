@@ -47,11 +47,11 @@
 #' @export
 
 
-cfGMM <- function(x, k, weights=NULL, alpha=NULL, beta=NULL, lambda=NULL, nbins=NULL, n.rerun=4, diff.conv=1e-6, max.iter=1e3, max.restarts = 20, max.comp=FALSE, min.lambda=1e-4, constraint=NULL)
-  {
+cfGMM  <- function(x, k, weights=NULL, alpha=NULL, beta=NULL, lambda=NULL, nbins=NULL, n.rerun=4, diff.conv=1e-6, max.iter=1e3, max.restarts = 20, max.comp=FALSE, min.lambda=1e-4, constraint=NULL)
+{
   #try catch with uniroot
   unirootTryCatch <- function(bound){
-      tryCatch(
+    tryCatch(
       {result=1/(uniroot(f=optimize_derivative, interval = c(1e-5,1e6), mk=bound, phi.vec=phi_out[,i], x=x, weights=weights)$root)
       return(result)
       },
@@ -67,13 +67,16 @@ cfGMM <- function(x, k, weights=NULL, alpha=NULL, beta=NULL, lambda=NULL, nbins=
   n <- length(x)
   y = x
   if(!is.null(nbins)){
-    weights = do.call(rbind, by(x, cut(x, breaks = nbins, include.lowest = TRUE), function(sub) c(mean(sub), length(sub)) ))
+    weights = do.call(rbind,
+                      by(x,
+                         cut(x, breaks = nbins, include.lowest = TRUE),
+                         function(sub) c(mean(sub), length(sub)) ))
     x = weights[,1]
     weights = weights[,2]
   } else if(is.null(weights)){
     sx = table(x)
     if(length(sx)<n){
-      weights=c(sx)
+      weights=as.numeric(sx)
       x = as.numeric(names(sx))
     }
   }
@@ -260,6 +263,9 @@ cfGMM <- function(x, k, weights=NULL, alpha=NULL, beta=NULL, lambda=NULL, nbins=
   dimnames(final.pars) <- list(c("alpha", "beta"),paste("comp.", 1:ncol(final.pars), sep=""))
   final.lik <- max(likelihood4)
   final.z <- final.result[["z"]]
+  weights <- as.integer(round(weights,0))
+  final.z <- apply(final.z, 2, function(x){rep(x, weights)} )
+  final.z <- final.z[order(y), ]
   final.conv <- final.result[["convergence"]]
   final.restart <- final.result[["nrestarts"]]
 
