@@ -79,12 +79,11 @@ cfGMM <- function(x, k, weights=NULL, alpha=NULL, beta=NULL, lambda=NULL, nbins=
     if(length(sx)<n){
       weights=as.numeric(sx)
       x = as.numeric(names(sx))
+    } else {
+      weights = rep(1, n)
     }
-  }
-  if(!is.null(weights.original)) {
+  } else if (!is.null(weights.original)) {
     weights = (weights.original/sum(weights.original)*n)[order(x)]
-  } else {
-    weights = rep(1, n)
   }
   x <- sort(x)
   # Getting started with initial values. If not specified, initial value will be replaced with a value near MOM estimator.
@@ -274,7 +273,7 @@ cfGMM <- function(x, k, weights=NULL, alpha=NULL, beta=NULL, lambda=NULL, nbins=
   final.conv <- final.result[["convergence"]]
   final.restart <- final.result[["nrestarts"]]
 
-  output <- output <- list(x=y, lambda=final.lambda, gamma.pars=final.pars, loglik=final.lik, posterior=final.z, all.loglik=final.loglik.all, convergence = final.conv, nrestart=final.restart,ft="cfGMM")
+  output <- list(x=y, lambda=final.lambda, gamma.pars=final.pars, loglik=final.lik, posterior=final.z, all.loglik=final.loglik.all, convergence = final.conv, nrestart=final.restart,ft="cfGMM")
   }else{output="Did not converge. Consider increase max.iter or check input."}
   return(output)
 }
