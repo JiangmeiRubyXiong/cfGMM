@@ -47,7 +47,7 @@
 #' @export
 
 
-cfGMM  <- function(x, k, weights=NULL, alpha=NULL, beta=NULL, lambda=NULL, nbins=NULL, n.rerun=4, diff.conv=1e-6, max.iter=1e3, max.restarts = 20, max.comp=FALSE, min.lambda=1e-4, constraint=NULL)
+cfGMM <- function(x, k, weights=NULL, alpha=NULL, beta=NULL, lambda=NULL, nbins=NULL, n.rerun=4, diff.conv=1e-6, max.iter=1e3, max.restarts = 20, max.comp=FALSE, min.lambda=1e-4, constraint=NULL)
 {
   #try catch with uniroot
   unirootTryCatch <- function(bound){
@@ -66,13 +66,14 @@ cfGMM  <- function(x, k, weights=NULL, alpha=NULL, beta=NULL, lambda=NULL, nbins
 
   n <- length(x)
   y = x
+  weights.original <- weights
   if(!is.null(nbins)){
     weights = do.call(rbind,
                       by(x,
                          cut(x, breaks = nbins, include.lowest = TRUE),
                          function(sub) c(mean(sub), length(sub)) ))
     x = weights[,1]
-    weights = weights[,2]
+    weights = weights[,2][order(x)]
   } else if(is.null(weights)){
     sx = table(x)
     if(length(sx)<n){
@@ -80,8 +81,12 @@ cfGMM  <- function(x, k, weights=NULL, alpha=NULL, beta=NULL, lambda=NULL, nbins
       x = as.numeric(names(sx))
     }
   }
-  if(!is.null(weights)) weights = weights/sum(weights)*n else weights = rep(1, n)
-
+  if(!is.null(weights.original)) {
+    weights = (weights.original/sum(weights.original)*n)[order(x)]
+  } else {
+    weights = rep(1, n)
+  }
+  x <- sort(x)
   # Getting started with initial values. If not specified, initial value will be replaced with a value near MOM estimator.
   # removes 4th element, which is k
   result4 <- list()
@@ -265,7 +270,7 @@ cfGMM  <- function(x, k, weights=NULL, alpha=NULL, beta=NULL, lambda=NULL, nbins
   final.z <- final.result[["z"]]
   weights <- as.integer(round(weights,0))
   final.z <- apply(final.z, 2, function(x){rep(x, weights)} )
-  final.z <- final.z[order(y), ]
+  final.z <- final.z[rank(y, ties.method = "random"),]
   final.conv <- final.result[["convergence"]]
   final.restart <- final.result[["nrestarts"]]
 
