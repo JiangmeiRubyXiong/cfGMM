@@ -268,7 +268,9 @@ cfGMM <- function(x, k, weights=NULL, alpha=NULL, beta=NULL, lambda=NULL, nbins=
   final.lik <- max(likelihood4)
   final.z <- final.result[["z"]]
   weights <- as.integer(round(weights,0))
-  final.z <- apply(final.z, 2, function(x){rep(x, weights)} )
+  if(!(!is.null(weights.original)&is.null(nbins))){
+    final.z <- apply(final.z, 2, function(x){rep(x, weights)} )
+  }
   final.z <- final.z[rank(y, ties.method = "random"),]
   final.conv <- final.result[["convergence"]]
   final.restart <- final.result[["nrestarts"]]
